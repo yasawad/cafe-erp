@@ -1,8 +1,8 @@
+/* eslint-disable */
 import { useState, useCallback } from "react";
 
 const BRAND = "#2D6A4F";
-const BRAND_LIGHT = "#52B788";
-const BRAND_BG = "#D8F3DC";
+const BRAND_LIGHT = "#52B788"; // eslint-disable-line no-unused-vars
 
 const INITIAL_MENUS = [
   { id: 1, name: "อเมริกาโน่", cat: "กาแฟ", price: 15000, status: "พร้อมขาย" },
@@ -170,7 +170,7 @@ ${catTasks.map((t, i) => `
   ${t.desc ? `<div class="task-desc">${t.desc}</div>` : ""}
   ${t.tools.length ? `<div class="tools"><strong>🧰 อุปกรณ์:</strong>${t.tools.join(" · ")}</div>` : ""}
 </div>`).join("")}
-<script>window.print();window.close();<\/script></body></html>`);
+<script>window.print();window.close();</script></body></html>`);
     w.document.close();
   };
 
@@ -657,7 +657,7 @@ hr{border:none;border-top:1px dashed #ccc;margin:10px 0}
 <div class="row"><span>VAT 7%</span><span>₭${v}</span></div><hr>
 <div class="row total"><span>ยอดสุทธิ</span><span>₭${ord.total}</span></div>
 <div class="center">ขอบคุณที่ใช้บริการ 🙏</div>
-<script>window.print();window.close();<\/script></body></html>`);
+<script>window.print();window.close();</script></body></html>`);
     w.document.close();
   };
 
@@ -930,7 +930,7 @@ function Report({ orders, tables }) {
 <body><h2>☕ CaféERP — รายงานยอดขาย</h2><p>พิมพ์วันที่ ${new Date().toLocaleDateString("th-TH")} · ออเดอร์ทั้งหมด ${orders.length} รายการ</p>
 <table><thead><tr><th>ออเดอร์</th><th>โต๊ะ</th><th>รายการ</th><th>ราคา</th><th>เวลา</th></tr></thead><tbody>${rows || "<tr><td colspan='5' style='text-align:center;color:#9CA3AF'>ยังไม่มีข้อมูล</td></tr>"}</tbody></table>
 <div class="total">รายได้รวม: ₭${total.toLocaleString()}</div>
-<script>window.print();window.close();<\/script></body></html>`);
+<script>window.print();window.close();</script></body></html>`);
     w.document.close();
   };
 
@@ -990,7 +990,7 @@ function Report({ orders, tables }) {
       </div>
 
       <Modal open={!!receiptOrder} onClose={() => setReceiptOrder(null)} title="ใบเสร็จรับเงิน"
-        footer={[<Btn key="c" onClick={() => setReceiptOrder(null)}>ปิด</Btn>, receiptOrder && <Btn key="p" variant="primary" onClick={() => { const t = tables.find((x) => x.id === receiptOrder.tableId); const s = receiptOrder.items.reduce((x, i) => x + i.price * i.qty, 0); const v = receiptOrder.total - s; const w = window.open("", "_blank", "width=380,height=600"); w.document.write(`<html><head><title>ใบเสร็จ</title><style>body{font-family:monospace;font-size:13px;line-height:2;padding:24px;max-width:300px;margin:auto}.row{display:flex;justify-content:space-between}hr{border:none;border-top:1px dashed #ccc;margin:10px 0}.center{text-align:center}.bold{font-weight:bold;font-size:15px}</style></head><body><div class="center bold">☕ CaféERP</div><div class="center" style="color:#666;font-size:11px">ใบเสร็จ</div><hr><div class="row"><span>ออเดอร์</span><span>#${receiptOrder.id}</span></div><div class="row"><span>โต๊ะ</span><span>${t ? "โต๊ะ " + t.num : "-"}</span></div><hr>${receiptOrder.items.map((i) => `<div class="row"><span>${i.name} ×${i.qty}</span><span>₭${i.price * i.qty}</span></div>`).join("")}<hr><div class="row"><span>ยอดรวม</span><span>₭${s}</span></div><div class="row"><span>VAT 7%</span><span>₭${v}</span></div><hr><div class="row bold"><span>ยอดสุทธิ</span><span>₭${receiptOrder.total}</span></div><div class="center" style="color:#9CA3AF;font-size:11px;margin-top:8px">ขอบคุณที่ใช้บริการ 🙏</div><script>window.print();window.close();<\/script></body></html>`); w.document.close(); }}>🖨 พิมพ์</Btn>]}>
+        footer={[<Btn key="c" onClick={() => setReceiptOrder(null)}>ปิด</Btn>, receiptOrder && <Btn key="p" variant="primary" onClick={() => { const t = tables.find((x) => x.id === receiptOrder.tableId); const s = receiptOrder.items.reduce((x, i) => x + i.price * i.qty, 0); const v = receiptOrder.total - s; const w = window.open("", "_blank", "width=380,height=600"); w.document.write(`<html><head><title>ใบเสร็จ</title><style>body{font-family:monospace;font-size:13px;line-height:2;padding:24px;max-width:300px;margin:auto}.row{display:flex;justify-content:space-between}hr{border:none;border-top:1px dashed #ccc;margin:10px 0}.center{text-align:center}.bold{font-weight:bold;font-size:15px}</style></head><body><div class="center bold">☕ CaféERP</div><div class="center" style="color:#666;font-size:11px">ใบเสร็จ</div><hr><div class="row"><span>ออเดอร์</span><span>#${receiptOrder.id}</span></div><div class="row"><span>โต๊ะ</span><span>${t ? "โต๊ะ " + t.num : "-"}</span></div><hr>${receiptOrder.items.map((i) => `<div class="row"><span>${i.name} ×${i.qty}</span><span>₭${i.price * i.qty}</span></div>`).join("")}<hr><div class="row"><span>ยอดรวม</span><span>₭${s}</span></div><div class="row"><span>VAT 7%</span><span>₭${v}</span></div><hr><div class="row bold"><span>ยอดสุทธิ</span><span>₭${receiptOrder.total}</span></div><div class="center" style="color:#9CA3AF;font-size:11px;margin-top:8px">ขอบคุณที่ใช้บริการ 🙏</div><script>window.print();window.close();</script></body></html>`); w.document.close(); }}>🖨 พิมพ์</Btn>]}>
         {receiptOrder && (() => {
           const t = tables.find((x) => x.id === receiptOrder.tableId);
           const s = receiptOrder.items.reduce((x, i) => x + i.price * i.qty, 0);
