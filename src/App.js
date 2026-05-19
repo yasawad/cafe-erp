@@ -607,6 +607,8 @@ function POS({ menus, tables, orders, setOrders, initialTableId, setInitialTable
   const [selectedTableId, setSelectedTableId] = useState(initialTableId || null);
   const [activeCat, setActiveCat] = useState("ทั้งหมด");
   const [receiptOpen, setReceiptOpen] = useState(false);
+  const [cashOpen, setCashOpen] = useState(false);
+  const [cashReceived, setCashReceived] = useState("");
   const [lastOrder, setLastOrder] = useState(null);
 
   const cats = ["ทั้งหมด", ...new Set(menus.map((m) => m.cat))];
@@ -624,13 +626,26 @@ function POS({ menus, tables, orders, setOrders, initialTableId, setInitialTable
   const sub = currentOrder.reduce((s, i) => s + i.price * i.qty, 0);
   const vat = Math.round(sub * 0.07);
   const grand = sub + vat;
+  const cashAmt = parseFloat(cashReceived) || 0;
+  const change = cashAmt - grand;
+
+  const openCash = () => { if (!currentOrder.length) return; setCashReceived(""); setCashOpen(true); };
 
   const checkout = () => {
     if (!currentOrder.length) return;
-    const ord = { id: Math.floor(Math.random() * 90000) + 10000, tableId: selectedTableId, items: currentOrder.map((i) => ({ ...i })), total: grand, time: new Date() };
+    const ord = {
+      id: Math.floor(Math.random() * 90000) + 10000,
+      tableId: selectedTableId,
+      items: currentOrder.map((i) => ({ ...i })),
+      total: grand,
+      cashReceived: cashAmt || grand,
+      change: cashAmt ? change : 0,
+      time: new Date()
+    };
     setOrders((prev) => [...prev, ord]);
     setLastOrder(ord);
     setCurrentOrder([]);
+    setCashOpen(false);
     setReceiptOpen(true);
   };
 
@@ -640,26 +655,34 @@ function POS({ menus, tables, orders, setOrders, initialTableId, setInitialTable
     const t = tables.find((t) => t.id === ord.tableId);
     const s = ord.items.reduce((x, i) => x + i.price * i.qty, 0);
     const v = ord.total - s;
-    const w = window.open("", "_blank", "width=380,height=640");
+    const w = window.open("", "_blank", "width=380,height=680");
     w.document.write(`<html><head><title>ใบเสร็จ #${ord.id}</title>
 <style>body{font-family:monospace;font-size:13px;line-height:2;padding:24px;max-width:300px;margin:auto}
 h2{text-align:center;font-size:16px;margin-bottom:2px}p.sub{text-align:center;color:#666;font-size:11px;margin:0 0 8px}
 hr{border:none;border-top:1px dashed #ccc;margin:10px 0}
 .row{display:flex;justify-content:space-between}.total{font-weight:bold;font-size:15px}
+.cash{background:#f0fff4;padding:8px;border-radius:6px;margin-top:4px}
 .center{text-align:center;color:#666;font-size:11px;margin-top:8px}</style></head>
 <body><h2>☕ CaféERP</h2><p class="sub">ใบเสร็จรับเงิน</p><hr>
 <div class="row"><span>ออเดอร์</span><span>#${ord.id}</span></div>
 <div class="row"><span>โต๊ะ</span><span>${t ? "โต๊ะ " + t.num : "ไม่ระบุ"}</span></div>
 <div class="row"><span>วันที่</span><span>${ord.time.toLocaleDateString("th-TH")}</span></div>
 <div class="row"><span>เวลา</span><span>${ord.time.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })}</span></div>
-<hr>${ord.items.map((i) => `<div class="row"><span>${i.name} ×${i.qty}</span><span>₭${i.price * i.qty}</span></div>`).join("")}
-<hr><div class="row"><span>ยอดรวม</span><span>₭${s}</span></div>
-<div class="row"><span>VAT 7%</span><span>₭${v}</span></div><hr>
-<div class="row total"><span>ยอดสุทธิ</span><span>₭${ord.total}</span></div>
+<hr>${ord.items.map((i) => `<div class="row"><span>${i.name} ×${i.qty}</span><span>₭${(i.price * i.qty).toLocaleString()}</span></div>`).join("")}
+<hr><div class="row"><span>ยอดรวม</span><span>₭${s.toLocaleString()}</span></div>
+<div class="row"><span>VAT 7%</span><span>₭${v.toLocaleString()}</span></div><hr>
+<div class="row total"><span>ยอดสุทธิ</span><span>₭${ord.total.toLocaleString()}</span></div>
+<div class="cash">
+<div class="row"><span>💵 รับเงินสด</span><span>₭${(ord.cashReceived||ord.total).toLocaleString()}</span></div>
+<div class="row total"><span>💰 ทอนเงิน</span><span>₭${(ord.change||0).toLocaleString()}</span></div>
+</div>
 <div class="center">ขอบคุณที่ใช้บริการ 🙏</div>
 <script>window.print();window.close();</script></body></html>`);
     w.document.close();
   };
+
+  // Quick cash buttons
+  const quickCash = [20000, 50000, 100000, 200000, 500000];
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 16 }}>
@@ -689,7 +712,7 @@ hr{border:none;border-top:1px dashed #ccc;margin:10px 0}
               onMouseLeave={(e) => e.currentTarget.style.borderColor = "#E5E7EB"}>
               <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 2 }}>{m.name}</div>
               <div style={{ fontSize: 11, color: "#9CA3AF", marginBottom: 8 }}>{m.cat}</div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: BRAND }}>₭{m.price}</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: BRAND }}>₭{m.price.toLocaleString()}</div>
             </div>
           ))}
         </div>
@@ -703,30 +726,89 @@ hr{border:none;border-top:1px dashed #ccc;margin:10px 0}
               <div key={it.id} style={{ display: "flex", alignItems: "center", padding: "9px 0", borderBottom: "1px solid #E5E7EB" }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 13, fontWeight: 500 }}>{it.name}</div>
-                  <div style={{ fontSize: 11, color: "#9CA3AF" }}>₭{it.price} × {it.qty}</div>
+                  <div style={{ fontSize: 11, color: "#9CA3AF" }}>₭{it.price.toLocaleString()} × {it.qty}</div>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginRight: 8 }}>
                   <button onClick={() => changeQty(it.id, -1)} style={{ width: 22, height: 22, borderRadius: "50%", border: "1px solid #D1D5DB", background: "#fff", cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
                   <span style={{ minWidth: 16, textAlign: "center", fontSize: 13 }}>{it.qty}</span>
                   <button onClick={() => changeQty(it.id, 1)} style={{ width: 22, height: 22, borderRadius: "50%", border: "1px solid #D1D5DB", background: "#fff", cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
                 </div>
-                <div style={{ fontSize: 13, fontWeight: 600, minWidth: 44, textAlign: "right" }}>₭{it.price * it.qty}</div>
+                <div style={{ fontSize: 13, fontWeight: 600, minWidth: 60, textAlign: "right" }}>₭{(it.price * it.qty).toLocaleString()}</div>
               </div>
             ))}
         </div>
         <div style={{ borderTop: "1px solid #E5E7EB", paddingTop: 14 }}>
-          {[["ยอดรวม", `₭${sub}`], ["VAT 7%", `₭${vat}`]].map(([k, v]) => (
+          {[["ยอดรวม", `₭${sub.toLocaleString()}`], ["VAT 7%", `₭${vat.toLocaleString()}`]].map(([k, v]) => (
             <div key={k} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#6B7280", marginBottom: 5 }}><span>{k}</span><span>{v}</span></div>
           ))}
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 16, fontWeight: 700, margin: "8px 0 14px" }}><span>ยอดสุทธิ</span><span style={{ color: BRAND }}>₭{grand}</span></div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 16, fontWeight: 700, margin: "8px 0 14px" }}><span>ยอดสุทธิ</span><span style={{ color: BRAND }}>₭{grand.toLocaleString()}</span></div>
           <div style={{ display: "flex", gap: 8 }}>
             <Btn size="sm" onClick={() => setCurrentOrder([])}>🗑</Btn>
-            <Btn size="sm" variant="secondary" onClick={() => { if (currentOrder.length) { setLastOrder({ id: "ตัวอย่าง", tableId: selectedTableId, items: currentOrder, total: grand, time: new Date() }); setReceiptOpen(true); } }}>🧾 preview</Btn>
-            <Btn variant="primary" style={{ flex: 1 }} onClick={checkout}>✓ ชำระเงิน</Btn>
+            <Btn size="sm" variant="secondary" onClick={() => { if (currentOrder.length) { setLastOrder({ id: "preview", tableId: selectedTableId, items: currentOrder, total: grand, cashReceived: grand, change: 0, time: new Date() }); setReceiptOpen(true); } }}>🧾</Btn>
+            <Btn variant="primary" style={{ flex: 1 }} onClick={openCash}>💵 รับเงินสด</Btn>
           </div>
         </div>
       </div>
 
+      {/* Cash Payment Modal */}
+      {cashOpen && (
+        <div onClick={(e) => e.target === e.currentTarget && setCashOpen(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ background: "#fff", borderRadius: 16, padding: 24, width: 360, maxWidth: "94vw", boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}>
+            <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 700 }}>💵 รับชำระเงินสด</h3>
+
+            <div style={{ background: "#F9FAFB", borderRadius: 12, padding: 14, marginBottom: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#6B7280", marginBottom: 4 }}><span>ยอดสุทธิ</span><span>₭{grand.toLocaleString()}</span></div>
+            </div>
+
+            <label style={{ fontSize: 12, color: "#6B7280", display: "block", marginBottom: 6 }}>รับเงินมา (₭)</label>
+            <input
+              value={cashReceived}
+              onChange={(e) => setCashReceived(e.target.value)}
+              type="number"
+              placeholder={`อย่างน้อย ₭${grand.toLocaleString()}`}
+              autoFocus
+              style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: `2px solid ${cashAmt >= grand ? BRAND : "#D1D5DB"}`, fontSize: 16, fontWeight: 700, fontFamily: "inherit", boxSizing: "border-box", outline: "none", textAlign: "right" }}
+            />
+
+            {/* Quick cash buttons */}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, margin: "10px 0" }}>
+              {quickCash.filter(q => q >= grand || q > 0).map((q) => (
+                <button key={q} onClick={() => setCashReceived(String(q))}
+                  style={{ padding: "5px 12px", borderRadius: 8, border: "1px solid #E5E7EB", background: cashAmt === q ? BRAND : "#F9FAFB", color: cashAmt === q ? "#fff" : "#374151", cursor: "pointer", fontSize: 12, fontFamily: "inherit" }}>
+                  ₭{q.toLocaleString()}
+                </button>
+              ))}
+              <button onClick={() => setCashReceived(String(grand))}
+                style={{ padding: "5px 12px", borderRadius: 8, border: "1px solid #E5E7EB", background: cashAmt === grand ? BRAND : "#F9FAFB", color: cashAmt === grand ? "#fff" : "#374151", cursor: "pointer", fontSize: 12, fontFamily: "inherit" }}>
+                พอดี
+              </button>
+            </div>
+
+            {/* Change display */}
+            <div style={{ borderRadius: 12, padding: 14, marginBottom: 16, background: cashAmt >= grand ? "#D8F3DC" : "#FEE2E2", transition: "background .2s" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, fontSize: 18 }}>
+                <span style={{ color: cashAmt >= grand ? "#1B4332" : "#7F1D1D" }}>
+                  {cashAmt >= grand ? "💰 ทอนเงิน" : "⚠️ ขาดอีก"}
+                </span>
+                <span style={{ color: cashAmt >= grand ? "#1B4332" : "#7F1D1D" }}>
+                  ₭{cashAmt > 0 ? Math.abs(change).toLocaleString() : "-"}
+                </span>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => setCashOpen(false)} style={{ flex: 1, padding: "10px", borderRadius: 10, border: "1px solid #E5E7EB", background: "#F9FAFB", cursor: "pointer", fontSize: 13, fontFamily: "inherit" }}>ยกเลิก</button>
+              <button onClick={checkout} disabled={cashAmt < grand}
+                style={{ flex: 2, padding: "10px", borderRadius: 10, border: "none", background: cashAmt >= grand ? BRAND : "#D1D5DB", color: "#fff", cursor: cashAmt >= grand ? "pointer" : "not-allowed", fontSize: 14, fontWeight: 700, fontFamily: "inherit" }}>
+                ✓ ยืนยันชำระเงิน
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Receipt Preview Modal */}
       <Modal open={receiptOpen} onClose={() => setReceiptOpen(false)} title="ใบเสร็จรับเงิน"
         footer={[<Btn key="c" onClick={() => setReceiptOpen(false)}>ปิด</Btn>, lastOrder && <Btn key="p" variant="primary" onClick={() => printReceipt(lastOrder)}>🖨 พิมพ์</Btn>]}>
         {lastOrder && (() => {
@@ -742,13 +824,18 @@ hr{border:none;border-top:1px dashed #ccc;margin:10px 0}
                 <div key={k} style={{ display: "flex", justifyContent: "space-between" }}><span>{k}</span><span>{v2}</span></div>
               ))}
               <hr style={{ border: "none", borderTop: "1px dashed #D1D5DB", margin: "8px 0" }} />
-              {lastOrder.items.map((i) => <div key={i.id} style={{ display: "flex", justifyContent: "space-between" }}><span>{i.name} ×{i.qty}</span><span>₭{i.price * i.qty}</span></div>)}
+              {lastOrder.items.map((i) => <div key={i.id} style={{ display: "flex", justifyContent: "space-between" }}><span>{i.name} ×{i.qty}</span><span>₭{(i.price * i.qty).toLocaleString()}</span></div>)}
               <hr style={{ border: "none", borderTop: "1px dashed #D1D5DB", margin: "8px 0" }} />
-              <div style={{ display: "flex", justifyContent: "space-between", color: "#6B7280" }}><span>ยอดรวม</span><span>₭{s}</span></div>
-              <div style={{ display: "flex", justifyContent: "space-between", color: "#6B7280" }}><span>VAT 7%</span><span>₭{v}</span></div>
+              <div style={{ display: "flex", justifyContent: "space-between", color: "#6B7280" }}><span>ยอดรวม</span><span>₭{s.toLocaleString()}</span></div>
+              <div style={{ display: "flex", justifyContent: "space-between", color: "#6B7280" }}><span>VAT 7%</span><span>₭{v.toLocaleString()}</span></div>
               <hr style={{ border: "none", borderTop: "1px dashed #D1D5DB", margin: "8px 0" }} />
-              <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, fontSize: 15 }}><span>ยอดสุทธิ</span><span>₭{lastOrder.total}</span></div>
-              <div style={{ textAlign: "center", color: "#9CA3AF", fontSize: 11, marginTop: 8 }}>ขอบคุณที่ใช้บริการ 🙏</div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, fontSize: 15 }}><span>ยอดสุทธิ</span><span>₭{lastOrder.total.toLocaleString()}</span></div>
+              <hr style={{ border: "none", borderTop: "1px dashed #D1D5DB", margin: "8px 0" }} />
+              <div style={{ background: "#D8F3DC", borderRadius: 8, padding: "8px 10px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between" }}><span>💵 รับเงินสด</span><span>₭{(lastOrder.cashReceived || lastOrder.total).toLocaleString()}</span></div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700 }}><span>💰 ทอนเงิน</span><span>₭{(lastOrder.change || 0).toLocaleString()}</span></div>
+              </div>
+              <div style={{ textAlign: "center", color: "#9CA3AF", fontSize: 11, marginTop: 10 }}>ขอบคุณที่ใช้บริการ 🙏</div>
             </div>
           );
         })()}
@@ -1067,6 +1154,184 @@ function Staff({ staffs, setStaffs }) {
 }
 
 // ────────────────────────────────────────────────────────
+// CASHBOOK PAGE
+// ────────────────────────────────────────────────────────
+const CB_INCOME_CATS = ["ขายกาแฟ", "ขายขนม", "รายได้อื่น"];
+const CB_EXPENSE_CATS = ["วัตถุดิบ", "ค่าแรง", "ค่าเช่า", "ค่าไฟ/น้ำ", "ค่าซ่อมบำรุง", "อุปกรณ์", "อื่นๆ"];
+
+function CashBook({ cashbook, setCashbook, orders }) {
+  const [showModal, setShowModal] = useState(false);
+  const [tab, setTab] = useState("all");
+  const [form, setForm] = useState({ type: "income", cat: "ขายกาแฟ", desc: "", amount: "" });
+
+  const todayEntries = cashbook.filter((e) => isToday(e.time));
+  const totalIncome = todayEntries.filter((e) => e.type === "income").reduce((s, e) => s + e.amount, 0);
+  const totalExpense = todayEntries.filter((e) => e.type === "expense").reduce((s, e) => s + e.amount, 0);
+  const salesIncome = orders.filter((o) => isToday(o.time)).reduce((s, o) => s + o.total, 0);
+  const netCash = totalIncome + salesIncome - totalExpense;
+
+  const filtered = cashbook.filter((e) => tab === "all" ? true : tab === "income" ? e.type === "income" : e.type === "expense");
+
+  const save = () => {
+    if (!form.desc || !form.amount) return;
+    setCashbook((p) => [...p, { id: Date.now(), type: form.type, cat: form.cat, desc: form.desc, amount: parseFloat(form.amount), time: new Date() }]);
+    setShowModal(false);
+    setForm({ type: "income", cat: "ขายกาแฟ", desc: "", amount: "" });
+  };
+
+  const exportCSV = () => {
+    const rows = [["วันที่", "เวลา", "ประเภท", "หมวด", "รายละเอียด", "จำนวน (₭)"]];
+    // Add POS orders as income
+    orders.forEach((o) => {
+      rows.push([o.time.toLocaleDateString("th-TH"), o.time.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" }), "รายรับ", "ขาย POS", `ออเดอร์ #${o.id}`, o.total]);
+    });
+    cashbook.forEach((e) => {
+      rows.push([e.time.toLocaleDateString("th-TH"), e.time.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" }), e.type === "income" ? "รายรับ" : "รายจ่าย", e.cat, e.desc, e.type === "income" ? e.amount : -e.amount]);
+    });
+    const csv = "\uFEFF" + rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
+    a.download = `cashbook_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+  };
+
+  return (
+    <div>
+      {/* Summary cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 12, marginBottom: 18 }}>
+        <div style={{ background: "#D8F3DC", borderRadius: 12, padding: "14px 16px" }}>
+          <div style={{ fontSize: 11, color: "#1B4332", marginBottom: 4 }}>💵 รายรับวันนี้ (สด)</div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: "#1B4332" }}>₭{totalIncome.toLocaleString()}</div>
+        </div>
+        <div style={{ background: "#DBEAFE", borderRadius: 12, padding: "14px 16px" }}>
+          <div style={{ fontSize: 11, color: "#1E3A5F", marginBottom: 4 }}>🧾 รายรับ POS วันนี้</div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: "#1E3A5F" }}>₭{salesIncome.toLocaleString()}</div>
+        </div>
+        <div style={{ background: "#FEE2E2", borderRadius: 12, padding: "14px 16px" }}>
+          <div style={{ fontSize: 11, color: "#7F1D1D", marginBottom: 4 }}>💸 รายจ่ายวันนี้</div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: "#7F1D1D" }}>₭{totalExpense.toLocaleString()}</div>
+        </div>
+        <div style={{ background: netCash >= 0 ? "#F0FFF4" : "#FFF5F5", borderRadius: 12, padding: "14px 16px", border: `1px solid ${netCash >= 0 ? "#68D391" : "#FC8181"}` }}>
+          <div style={{ fontSize: 11, color: netCash >= 0 ? "#276749" : "#9B2C2C", marginBottom: 4 }}>💰 กำไรสุทธิวันนี้</div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: netCash >= 0 ? "#276749" : "#9B2C2C" }}>₭{netCash.toLocaleString()}</div>
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+        <div style={{ display: "flex", gap: 6 }}>
+          {[["all","ทั้งหมด"],["income","รายรับ"],["expense","รายจ่าย"]].map(([v, l]) => (
+            <button key={v} onClick={() => setTab(v)}
+              style={{ padding: "6px 14px", borderRadius: 20, border: "1px solid", fontSize: 12, cursor: "pointer", fontFamily: "inherit",
+                background: tab === v ? BRAND : "transparent", color: tab === v ? "#fff" : "#6B7280", borderColor: tab === v ? BRAND : "#E5E7EB" }}>
+              {l}
+            </button>
+          ))}
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <Btn size="sm" onClick={exportCSV}>📊 Export CSV</Btn>
+          <Btn size="sm" variant="primary" onClick={() => setShowModal(true)}>+ บันทึกรายการ</Btn>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div style={{ background: "#fff", border: "1px solid #E5E7EB", borderRadius: 16 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <thead>
+            <tr>{["เวลา","ประเภท","หมวด","รายละเอียด","จำนวน (₭)",""].map((h) => (
+              <th key={h} style={{ textAlign: "left", padding: "8px 14px", fontSize: 11, fontWeight: 600, color: "#9CA3AF", borderBottom: "1px solid #F3F4F6" }}>{h}</th>
+            ))}</tr>
+          </thead>
+          <tbody>
+            {/* POS orders as income rows */}
+            {tab !== "expense" && orders.filter((o) => isToday(o.time)).map((o) => (
+              <tr key={`pos-${o.id}`}>
+                <td style={{ padding: "9px 14px", borderBottom: "1px solid #F9FAFB", color: "#9CA3AF", fontSize: 11 }}>{o.time.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })}</td>
+                <td style={{ padding: "9px 14px", borderBottom: "1px solid #F9FAFB" }}><Badge type="green">รายรับ</Badge></td>
+                <td style={{ padding: "9px 14px", borderBottom: "1px solid #F9FAFB", color: "#6B7280" }}>ขาย POS</td>
+                <td style={{ padding: "9px 14px", borderBottom: "1px solid #F9FAFB", color: "#6B7280" }}>ออเดอร์ #{o.id}</td>
+                <td style={{ padding: "9px 14px", borderBottom: "1px solid #F9FAFB", fontWeight: 700, color: BRAND }}>+₭{o.total.toLocaleString()}</td>
+                <td style={{ padding: "9px 14px", borderBottom: "1px solid #F9FAFB" }}></td>
+              </tr>
+            ))}
+            {/* Manual entries */}
+            {[...filtered].reverse().map((e) => (
+              <tr key={e.id}>
+                <td style={{ padding: "9px 14px", borderBottom: "1px solid #F9FAFB", color: "#9CA3AF", fontSize: 11 }}>{e.time.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })}</td>
+                <td style={{ padding: "9px 14px", borderBottom: "1px solid #F9FAFB" }}>
+                  <Badge type={e.type === "income" ? "green" : "red"}>{e.type === "income" ? "รายรับ" : "รายจ่าย"}</Badge>
+                </td>
+                <td style={{ padding: "9px 14px", borderBottom: "1px solid #F9FAFB", color: "#6B7280" }}>{e.cat}</td>
+                <td style={{ padding: "9px 14px", borderBottom: "1px solid #F9FAFB" }}>{e.desc}</td>
+                <td style={{ padding: "9px 14px", borderBottom: "1px solid #F9FAFB", fontWeight: 700, color: e.type === "income" ? BRAND : "#DC2626" }}>
+                  {e.type === "income" ? "+" : "−"}₭{e.amount.toLocaleString()}
+                </td>
+                <td style={{ padding: "9px 14px", borderBottom: "1px solid #F9FAFB" }}>
+                  <Btn size="sm" variant="danger" onClick={() => setCashbook((p) => p.filter((x) => x.id !== e.id))}>🗑</Btn>
+                </td>
+              </tr>
+            ))}
+            {filtered.length === 0 && orders.filter((o) => isToday(o.time)).length === 0 && (
+              <tr><td colSpan={6} style={{ textAlign: "center", padding: 24, color: "#9CA3AF" }}>ยังไม่มีรายการ</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Add Modal */}
+      {showModal && (
+        <div onClick={(e) => e.target === e.currentTarget && setShowModal(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ background: "#fff", borderRadius: 16, padding: 24, width: 400, maxWidth: "94vw", boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 18 }}>
+              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>+ บันทึกรายการเงินสด</h3>
+              <button onClick={() => setShowModal(false)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 20, color: "#9CA3AF" }}>×</button>
+            </div>
+
+            {/* Type toggle */}
+            <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+              {[["income","💵 รายรับ"],["expense","💸 รายจ่าย"]].map(([v, l]) => (
+                <button key={v} onClick={() => setForm({ ...form, type: v, cat: v === "income" ? "ขายกาแฟ" : "วัตถุดิบ" })}
+                  style={{ flex: 1, padding: "10px", borderRadius: 10, border: "2px solid", cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: "inherit", transition: "all .15s",
+                    background: form.type === v ? (v === "income" ? "#D8F3DC" : "#FEE2E2") : "#F9FAFB",
+                    color: form.type === v ? (v === "income" ? "#1B4332" : "#7F1D1D") : "#6B7280",
+                    borderColor: form.type === v ? (v === "income" ? BRAND : "#DC2626") : "#E5E7EB" }}>
+                  {l}
+                </button>
+              ))}
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+              <div>
+                <label style={{ fontSize: 12, color: "#6B7280", display: "block", marginBottom: 4 }}>หมวดหมู่</label>
+                <select value={form.cat} onChange={(e) => setForm({ ...form, cat: e.target.value })}
+                  style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid #D1D5DB", fontSize: 13, background: "#fff", fontFamily: "inherit", boxSizing: "border-box" }}>
+                  {(form.type === "income" ? CB_INCOME_CATS : CB_EXPENSE_CATS).map((c) => <option key={c}>{c}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize: 12, color: "#6B7280", display: "block", marginBottom: 4 }}>จำนวนเงิน (₭)</label>
+                <input value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} type="number" placeholder="50,000"
+                  style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid #D1D5DB", fontSize: 13, fontFamily: "inherit", boxSizing: "border-box" }} />
+              </div>
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 12, color: "#6B7280", display: "block", marginBottom: 4 }}>รายละเอียด</label>
+              <input value={form.desc} onChange={(e) => setForm({ ...form, desc: e.target.value })} placeholder="เช่น ซื้อเมล็ดกาแฟ 2 กก."
+                style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid #D1D5DB", fontSize: 13, fontFamily: "inherit", boxSizing: "border-box" }} />
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => setShowModal(false)} style={{ flex: 1, padding: "10px", borderRadius: 10, border: "1px solid #E5E7EB", background: "#F9FAFB", cursor: "pointer", fontSize: 13, fontFamily: "inherit" }}>ยกเลิก</button>
+              <button onClick={save} style={{ flex: 2, padding: "10px", borderRadius: 10, border: "none", background: BRAND, color: "#fff", cursor: "pointer", fontSize: 14, fontWeight: 700, fontFamily: "inherit" }}>บันทึก</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────
 // APP SHELL
 // ────────────────────────────────────────────────────────
 const NAV = [
@@ -1076,6 +1341,7 @@ const NAV = [
   { id: "menu", icon: "☕", label: "เมนู & ราคา" },
   { id: "stock", icon: "📦", label: "สต็อก" },
   { id: "report", icon: "📈", label: "รายงาน" },
+  { id: "cashbook", icon: "💰", label: "รายรับ-รายจ่าย" },
   { id: "staff", icon: "👥", label: "พนักงาน" },
   { id: "sop", icon: "📋", label: "SOP งานประจำวัน" },
 ];
@@ -1087,6 +1353,11 @@ export default function App() {
   const [stocks, setStocks] = useState(INITIAL_STOCKS);
   const [staffs, setStaffs] = useState(INITIAL_STAFF);
   const [orders, setOrders] = useState(SEED_ORDERS);
+  const [cashbook, setCashbook] = useState([
+    { id: 1, type: "income", cat: "ขายกาแฟ", desc: "ยอดขายเปิดร้านเช้า", amount: 150000, time: new Date(Date.now() - 7200000) },
+    { id: 2, type: "expense", cat: "วัตถุดิบ", desc: "ซื้อเมล็ดกาแฟ", amount: 80000, time: new Date(Date.now() - 5400000) },
+    { id: 3, type: "expense", cat: "ค่าแรง", desc: "ค่าจ้างพนักงานรายวัน", amount: 50000, time: new Date(Date.now() - 3600000) },
+  ]);
   const [posTableId, setPosTableId] = useState(null);
 
   const goToPOS = useCallback((tableId) => { setPosTableId(tableId); setPage("pos"); }, []);
@@ -1127,6 +1398,7 @@ export default function App() {
           {page === "menu" && <MenuPage menus={menus} setMenus={setMenus} />}
           {page === "stock" && <StockPage stocks={stocks} setStocks={setStocks} />}
           {page === "report" && <Report orders={orders} tables={tables} />}
+          {page === "cashbook" && <CashBook cashbook={cashbook} setCashbook={setCashbook} orders={orders} />}
           {page === "staff" && <Staff staffs={staffs} setStaffs={setStaffs} />}
           {page === "sop" && <SOPPage />}
         </div>
