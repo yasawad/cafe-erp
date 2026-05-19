@@ -1332,6 +1332,391 @@ function CashBook({ cashbook, setCashbook, orders }) {
 }
 
 // ────────────────────────────────────────────────────────
+// PURCHASE ORDER PAGE
+// ────────────────────────────────────────────────────────
+const PO_STATUS = {
+  draft:     { label: "ร่าง",        color: "#374151", bg: "#F3F4F6" },
+  sent:      { label: "ส่งแล้ว",     color: "#185FA5", bg: "#DBEAFE" },
+  received:  { label: "รับของแล้ว", color: "#1B4332", bg: "#D8F3DC" },
+  cancelled: { label: "ยกเลิก",     color: "#7F1D1D", bg: "#FEE2E2" },
+};
+
+function PurchasePage({ stocks, setStocks, purchaseOrders, setPurchaseOrders }) {
+  const [tab, setTab] = useState("create");
+  const [supplier, setSupplier] = useState("");
+  const [note, setNote] = useState("");
+  const [items, setItems] = useState([]);
+  const [showAddItem, setShowAddItem] = useState(false);
+  const [newItem, setNewItem] = useState({ stockId: "", name: "", qty: "", unit: "กิโลกรัม", pricePerUnit: "" });
+  const [viewPO, setViewPO] = useState(null);
+
+  // Auto-suggest low stock items
+  const lowStocks = stocks.filter((s) => s.qty <= s.min * 1.5);
+  const suggestQty = (s) => Math.max(s.min * 3 - s.qty, s.min);
+
+  const autoFill = () => {
+    const suggested = lowStocks.map((s) => ({
+      id: Date.now() + s.id,
+      stockId: s.id,
+      name: s.name,
+      qty: suggestQty(s),
+      unit: s.unit,
+      pricePerUnit: "",
+    }));
+    setItems(suggested);
+  };
+
+  const addItem = () => {
+    if (!newItem.name || !newItem.qty) return;
+    setItems((p) => [...p, { id: Date.now(), stockId: newItem.stockId || null, name: newItem.name, qty: parseFloat(newItem.qty), unit: newItem.unit, pricePerUnit: parseFloat(newItem.pricePerUnit) || 0 }]);
+    setNewItem({ stockId: "", name: "", qty: "", unit: "กิโลกรัม", pricePerUnit: "" });
+    setShowAddItem(false);
+  };
+
+  const removeItem = (id) => setItems((p) => p.filter((x) => x.id !== id));
+
+  const totalCost = items.reduce((s, i) => s + (i.pricePerUnit * i.qty || 0), 0);
+
+  const createPO = (status = "draft") => {
+    if (!items.length) return;
+    const po = {
+      id: `PO-${Date.now()}`,
+      supplier: supplier || "ไม่ระบุ",
+      note,
+      items: items.map((i) => ({ ...i })),
+      totalCost,
+      status,
+      createdAt: new Date(),
+      receivedAt: null,
+    };
+    setPurchaseOrders((p) => [po, ...p]);
+    setItems([]); setSupplier(""); setNote("");
+    setTab("history");
+  };
+
+  const receivePO = (poId) => {
+    const po = purchaseOrders.find((p) => p.id === poId);
+    if (!po) return;
+    // Update stock quantities
+    po.items.forEach((item) => {
+      if (item.stockId) {
+        setStocks((prev) => prev.map((s) => s.id === item.stockId ? { ...s, qty: s.qty + item.qty } : s));
+      } else {
+        // Add as new stock if not linked
+        setStocks((prev) => {
+          const exists = prev.find((s) => s.name === item.name);
+          if (exists) return prev.map((s) => s.name === item.name ? { ...s, qty: s.qty + item.qty } : s);
+          return [...prev, { id: Date.now(), name: item.name, qty: item.qty, unit: item.unit, min: 0 }];
+        });
+      }
+    });
+    setPurchaseOrders((p) => p.map((x) => x.id === poId ? { ...x, status: "received", receivedAt: new Date() } : x));
+    alert(`✅ รับของเรียบร้อย! อัปเดตสต็อก ${po.items.length} รายการแล้ว`);
+  };
+
+  const printPO = (po) => {
+    const w = window.open("", "_blank", "width=700,height=750");
+    w.document.write(`<html><head><title>ใบสั่งซื้อ ${po.id}</title>
+<style>body{font-family:sans-serif;font-size:13px;padding:32px;color:#111}
+h2{font-size:18px;margin:0}p{color:#666;font-size:12px;margin:4px 0}
+table{width:100%;border-collapse:collapse;margin-top:16px}
+th{text-align:left;padding:9px 12px;font-size:11px;font-weight:700;color:#9CA3AF;border-bottom:2px solid #E5E7EB}
+td{padding:10px 12px;border-bottom:1px solid #F3F4F6}
+.total{font-size:15px;font-weight:700;margin-top:16px;text-align:right}
+.footer{margin-top:40px;display:grid;grid-template-columns:1fr 1fr;gap:40px}
+.sig{border-top:1px solid #333;padding-top:8px;font-size:12px;color:#666;margin-top:40px}
+@media print{body{padding:0}}</style></head>
+<body>
+<div style="display:flex;justify-content:space-between;align-items:flex-start">
+  <div><h2>☕ CaféERP — ใบสั่งซื้อวัตถุดิบ</h2>
+    <p>เลขที่: <strong>${po.id}</strong></p>
+    <p>วันที่: ${po.createdAt.toLocaleDateString("th-TH", { year:"numeric",month:"long",day:"numeric" })}</p>
+  </div>
+  <div style="text-align:right">
+    <p>ผู้จำหน่าย: <strong>${po.supplier}</strong></p>
+    ${po.note ? `<p>หมายเหตุ: ${po.note}</p>` : ""}
+  </div>
+</div>
+<table>
+  <thead><tr><th>#</th><th>รายการวัตถุดิบ</th><th>จำนวน</th><th>หน่วย</th><th>ราคา/หน่วย (₭)</th><th>รวม (₭)</th></tr></thead>
+  <tbody>
+    ${po.items.map((it, i) => `<tr>
+      <td>${i + 1}</td>
+      <td><strong>${it.name}</strong></td>
+      <td>${it.qty}</td>
+      <td>${it.unit}</td>
+      <td>${it.pricePerUnit ? it.pricePerUnit.toLocaleString() : "-"}</td>
+      <td>${it.pricePerUnit ? (it.pricePerUnit * it.qty).toLocaleString() : "-"}</td>
+    </tr>`).join("")}
+  </tbody>
+</table>
+${po.totalCost > 0 ? `<div class="total">ยอดรวมทั้งสิ้น: ₭${po.totalCost.toLocaleString()}</div>` : ""}
+<div class="footer">
+  <div><div class="sig">ผู้สั่งซื้อ</div><div style="margin-top:4px;font-size:12px;color:#9CA3AF">วันที่: ____/____/____</div></div>
+  <div><div class="sig">ผู้จำหน่าย / ผู้รับมอบ</div><div style="margin-top:4px;font-size:12px;color:#9CA3AF">วันที่: ____/____/____</div></div>
+</div>
+<script>window.print();window.close();</script></body></html>`);
+    w.document.close();
+  };
+
+  const exportCSV = (po) => {
+    const rows = [["รายการ","จำนวน","หน่วย","ราคา/หน่วย(₭)","รวม(₭)"]];
+    po.items.forEach((it) => rows.push([it.name, it.qty, it.unit, it.pricePerUnit || "-", it.pricePerUnit ? it.pricePerUnit * it.qty : "-"]));
+    const csv = "\uFEFF" + rows.map((r) => r.map((c) => `"${String(c)}"`).join(",")).join("\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
+    a.download = `${po.id}.csv`;
+    a.click();
+  };
+
+  return (
+    <div>
+      {/* Tabs */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 18 }}>
+        {[["create","✏️ สร้างใบสั่งซื้อ"],["history","📄 ประวัติใบสั่งซื้อ"]].map(([v, l]) => (
+          <button key={v} onClick={() => setTab(v)}
+            style={{ padding: "8px 18px", borderRadius: 10, border: "1px solid", fontSize: 13, cursor: "pointer", fontFamily: "inherit", fontWeight: 500,
+              background: tab === v ? BRAND : "#fff", color: tab === v ? "#fff" : "#6B7280", borderColor: tab === v ? BRAND : "#E5E7EB" }}>
+            {l}
+          </button>
+        ))}
+      </div>
+
+      {tab === "create" && (
+        <div>
+          {/* Low stock alert banner */}
+          {lowStocks.length > 0 && (
+            <div style={{ background: "#FFFBEB", border: "1px solid #F6AD55", borderRadius: 12, padding: "12px 16px", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <span style={{ fontWeight: 700, color: "#78350F" }}>⚠️ วัตถุดิบใกล้หมด {lowStocks.length} รายการ: </span>
+                <span style={{ fontSize: 13, color: "#92400E" }}>{lowStocks.map((s) => s.name).join(", ")}</span>
+              </div>
+              <button onClick={autoFill}
+                style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "#D97706", color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "inherit", whiteSpace: "nowrap" }}>
+                ✨ เพิ่มอัตโนมัติ
+              </button>
+            </div>
+          )}
+
+          {/* Supplier + Note */}
+          <div style={{ background: "#fff", border: "1px solid #E5E7EB", borderRadius: 16, padding: 16, marginBottom: 14 }}>
+            <div style={{ fontWeight: 600, fontSize: 13, color: "#6B7280", marginBottom: 12 }}>ข้อมูลใบสั่งซื้อ</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div>
+                <label style={{ fontSize: 12, color: "#6B7280", display: "block", marginBottom: 4 }}>ผู้จำหน่าย / ร้านค้า</label>
+                <input value={supplier} onChange={(e) => setSupplier(e.target.value)} placeholder="เช่น ร้านกาแฟสด ABC"
+                  style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid #D1D5DB", fontSize: 13, fontFamily: "inherit", boxSizing: "border-box" }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 12, color: "#6B7280", display: "block", marginBottom: 4 }}>หมายเหตุ</label>
+                <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="เช่น ส่งก่อน 9 โมง"
+                  style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid #D1D5DB", fontSize: 13, fontFamily: "inherit", boxSizing: "border-box" }} />
+              </div>
+            </div>
+          </div>
+
+          {/* Items table */}
+          <div style={{ background: "#fff", border: "1px solid #E5E7EB", borderRadius: 16, padding: 16, marginBottom: 14 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <span style={{ fontWeight: 600, fontSize: 13, color: "#6B7280" }}>รายการวัตถุดิบ ({items.length} รายการ)</span>
+              <button onClick={() => setShowAddItem(true)}
+                style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: BRAND, color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "inherit" }}>
+                + เพิ่มรายการ
+              </button>
+            </div>
+
+            {items.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "28px 0", color: "#9CA3AF" }}>
+                <div style={{ fontSize: 32, marginBottom: 8 }}>📦</div>
+                <div style={{ fontSize: 13 }}>ยังไม่มีรายการ — กด <strong>"✨ เพิ่มอัตโนมัติ"</strong> หรือ <strong>"+ เพิ่มรายการ"</strong></div>
+              </div>
+            ) : (
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead>
+                  <tr>{["รายการวัตถุดิบ","จำนวน","หน่วย","ราคา/หน่วย (₭)","รวม (₭)",""].map((h) => (
+                    <th key={h} style={{ textAlign: "left", padding: "7px 10px", fontSize: 11, fontWeight: 600, color: "#9CA3AF", borderBottom: "1px solid #F3F4F6" }}>{h}</th>
+                  ))}</tr>
+                </thead>
+                <tbody>
+                  {items.map((it) => {
+                    const stock = stocks.find((s) => s.id === it.stockId);
+                    const isLow = stock && stock.qty <= stock.min;
+                    return (
+                      <tr key={it.id}>
+                        <td style={{ padding: "10px 10px", borderBottom: "1px solid #F9FAFB" }}>
+                          <div style={{ fontWeight: 600 }}>{it.name}</div>
+                          {stock && <div style={{ fontSize: 11, color: isLow ? "#DC2626" : "#9CA3AF" }}>คงเหลือ: {stock.qty} {stock.unit} {isLow ? "⚠️" : ""}</div>}
+                        </td>
+                        <td style={{ padding: "10px 10px", borderBottom: "1px solid #F9FAFB" }}>
+                          <input value={it.qty} type="number" onChange={(e) => setItems((p) => p.map((x) => x.id === it.id ? { ...x, qty: parseFloat(e.target.value) || 0 } : x))}
+                            style={{ width: 70, padding: "5px 8px", borderRadius: 6, border: "1px solid #D1D5DB", fontSize: 13, fontFamily: "inherit" }} />
+                        </td>
+                        <td style={{ padding: "10px 10px", borderBottom: "1px solid #F9FAFB", color: "#6B7280" }}>{it.unit}</td>
+                        <td style={{ padding: "10px 10px", borderBottom: "1px solid #F9FAFB" }}>
+                          <input value={it.pricePerUnit || ""} type="number" placeholder="0" onChange={(e) => setItems((p) => p.map((x) => x.id === it.id ? { ...x, pricePerUnit: parseFloat(e.target.value) || 0 } : x))}
+                            style={{ width: 90, padding: "5px 8px", borderRadius: 6, border: "1px solid #D1D5DB", fontSize: 13, fontFamily: "inherit" }} />
+                        </td>
+                        <td style={{ padding: "10px 10px", borderBottom: "1px solid #F9FAFB", fontWeight: 600, color: BRAND }}>
+                          {it.pricePerUnit ? `₭${(it.pricePerUnit * it.qty).toLocaleString()}` : "-"}
+                        </td>
+                        <td style={{ padding: "10px 10px", borderBottom: "1px solid #F9FAFB" }}>
+                          <button onClick={() => removeItem(it.id)} style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid #FEE2E2", background: "#FEF2F2", cursor: "pointer", fontSize: 12, color: "#DC2626", fontFamily: "inherit" }}>🗑</button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+
+            {items.length > 0 && totalCost > 0 && (
+              <div style={{ textAlign: "right", marginTop: 12, fontWeight: 700, fontSize: 15, color: BRAND }}>
+                ยอดรวมทั้งสิ้น: ₭{totalCost.toLocaleString()}
+              </div>
+            )}
+          </div>
+
+          {/* Action buttons */}
+          {items.length > 0 && (
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button onClick={() => createPO("draft")}
+                style={{ padding: "10px 20px", borderRadius: 10, border: "1px solid #E5E7EB", background: "#F9FAFB", cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: "inherit" }}>
+                💾 บันทึกร่าง
+              </button>
+              <button onClick={() => { createPO("sent"); }}
+                style={{ padding: "10px 20px", borderRadius: 10, border: "none", background: "#2563EB", color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: "inherit" }}>
+                📤 สร้างและพิมพ์ใบสั่งซื้อ
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === "history" && (
+        <div>
+          {purchaseOrders.length === 0 ? (
+            <div style={{ textAlign: "center", padding: 48, color: "#9CA3AF" }}>
+              <div style={{ fontSize: 40, marginBottom: 10 }}>🛒</div>
+              <div>ยังไม่มีใบสั่งซื้อ — กลับไปสร้างที่แท็บ "สร้างใบสั่งซื้อ"</div>
+            </div>
+          ) : purchaseOrders.map((po) => {
+            const cfg = PO_STATUS[po.status];
+            return (
+              <div key={po.id} style={{ background: "#fff", border: "1px solid #E5E7EB", borderRadius: 16, padding: 16, marginBottom: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{ fontWeight: 700, fontSize: 15 }}>{po.id}</span>
+                      <span style={{ fontSize: 11, padding: "2px 10px", borderRadius: 20, background: cfg.bg, color: cfg.color, fontWeight: 600 }}>{cfg.label}</span>
+                    </div>
+                    <div style={{ fontSize: 12, color: "#9CA3AF", marginTop: 4 }}>
+                      ผู้จำหน่าย: <span style={{ color: "#374151", fontWeight: 500 }}>{po.supplier}</span>
+                      {" · "}วันที่: {po.createdAt.toLocaleDateString("th-TH")}
+                      {po.receivedAt && ` · รับของ: ${po.receivedAt.toLocaleDateString("th-TH")}`}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button onClick={() => printPO(po)} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #E5E7EB", background: "#F9FAFB", cursor: "pointer", fontSize: 12, fontFamily: "inherit" }}>🖨 พิมพ์</button>
+                    <button onClick={() => exportCSV(po)} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #E5E7EB", background: "#F9FAFB", cursor: "pointer", fontSize: 12, fontFamily: "inherit" }}>📊 CSV</button>
+                    {po.status !== "received" && po.status !== "cancelled" && (
+                      <button onClick={() => receivePO(po.id)} style={{ padding: "6px 12px", borderRadius: 8, border: "none", background: BRAND, color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "inherit" }}>✅ รับของแล้ว</button>
+                    )}
+                    {po.status === "draft" && (
+                      <button onClick={() => setPurchaseOrders((p) => p.map((x) => x.id === po.id ? { ...x, status: "cancelled" } : x))}
+                        style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #FEE2E2", background: "#FEF2F2", cursor: "pointer", fontSize: 12, color: "#DC2626", fontFamily: "inherit" }}>ยกเลิก</button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Items list */}
+                <div style={{ background: "#F9FAFB", borderRadius: 10, overflow: "hidden" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                    <thead>
+                      <tr style={{ background: "#F3F4F6" }}>
+                        {["รายการ","จำนวน","หน่วย","ราคา/หน่วย","รวม"].map((h) => (
+                          <th key={h} style={{ textAlign: "left", padding: "6px 12px", fontSize: 11, fontWeight: 600, color: "#9CA3AF" }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {po.items.map((it, i) => (
+                        <tr key={i}>
+                          <td style={{ padding: "8px 12px", borderBottom: "1px solid #F3F4F6", fontWeight: 500 }}>{it.name}</td>
+                          <td style={{ padding: "8px 12px", borderBottom: "1px solid #F3F4F6" }}>{it.qty}</td>
+                          <td style={{ padding: "8px 12px", borderBottom: "1px solid #F3F4F6", color: "#6B7280" }}>{it.unit}</td>
+                          <td style={{ padding: "8px 12px", borderBottom: "1px solid #F3F4F6", color: "#6B7280" }}>{it.pricePerUnit ? `₭${it.pricePerUnit.toLocaleString()}` : "-"}</td>
+                          <td style={{ padding: "8px 12px", borderBottom: "1px solid #F3F4F6", fontWeight: 600, color: BRAND }}>{it.pricePerUnit ? `₭${(it.pricePerUnit * it.qty).toLocaleString()}` : "-"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {po.totalCost > 0 && (
+                  <div style={{ textAlign: "right", marginTop: 10, fontWeight: 700, color: BRAND }}>ยอดรวม: ₭{po.totalCost.toLocaleString()}</div>
+                )}
+                {po.note && <div style={{ marginTop: 8, fontSize: 12, color: "#6B7280" }}>📝 {po.note}</div>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Add Item Modal */}
+      {showAddItem && (
+        <div onClick={(e) => e.target === e.currentTarget && setShowAddItem(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ background: "#fff", borderRadius: 16, padding: 24, width: 400, maxWidth: "94vw", boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
+              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>+ เพิ่มรายการวัตถุดิบ</h3>
+              <button onClick={() => setShowAddItem(false)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 20, color: "#9CA3AF" }}>×</button>
+            </div>
+
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 12, color: "#6B7280", display: "block", marginBottom: 4 }}>เลือกจากสต็อก (หรือพิมพ์ชื่อใหม่)</label>
+              <select value={newItem.stockId} onChange={(e) => {
+                  const s = stocks.find((x) => x.id === parseInt(e.target.value));
+                  setNewItem(s ? { ...newItem, stockId: s.id, name: s.name, unit: s.unit } : { ...newItem, stockId: "", name: "" });
+                }}
+                style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid #D1D5DB", fontSize: 13, background: "#fff", fontFamily: "inherit", boxSizing: "border-box", marginBottom: 8 }}>
+                <option value="">-- เลือกจากสต็อก --</option>
+                {stocks.map((s) => <option key={s.id} value={s.id}>{s.name} (คงเหลือ: {s.qty} {s.unit})</option>)}
+              </select>
+              <input value={newItem.name} onChange={(e) => setNewItem({ ...newItem, name: e.target.value })} placeholder="หรือพิมพ์ชื่อวัตถุดิบ"
+                style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid #D1D5DB", fontSize: 13, fontFamily: "inherit", boxSizing: "border-box" }} />
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 12 }}>
+              <div>
+                <label style={{ fontSize: 12, color: "#6B7280", display: "block", marginBottom: 4 }}>จำนวน</label>
+                <input value={newItem.qty} onChange={(e) => setNewItem({ ...newItem, qty: e.target.value })} type="number" placeholder="5"
+                  style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #D1D5DB", fontSize: 13, fontFamily: "inherit", boxSizing: "border-box" }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 12, color: "#6B7280", display: "block", marginBottom: 4 }}>หน่วย</label>
+                <select value={newItem.unit} onChange={(e) => setNewItem({ ...newItem, unit: e.target.value })}
+                  style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #D1D5DB", fontSize: 13, background: "#fff", fontFamily: "inherit", boxSizing: "border-box" }}>
+                  {["กิโลกรัม","กรัม","ลิตร","มิลลิลิตร","ชิ้น","ถุง","กล่อง"].map((u) => <option key={u}>{u}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize: 12, color: "#6B7280", display: "block", marginBottom: 4 }}>ราคา/หน่วย</label>
+                <input value={newItem.pricePerUnit} onChange={(e) => setNewItem({ ...newItem, pricePerUnit: e.target.value })} type="number" placeholder="₭"
+                  style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #D1D5DB", fontSize: 13, fontFamily: "inherit", boxSizing: "border-box" }} />
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => setShowAddItem(false)} style={{ flex: 1, padding: "10px", borderRadius: 10, border: "1px solid #E5E7EB", background: "#F9FAFB", cursor: "pointer", fontSize: 13, fontFamily: "inherit" }}>ยกเลิก</button>
+              <button onClick={addItem} style={{ flex: 2, padding: "10px", borderRadius: 10, border: "none", background: BRAND, color: "#fff", cursor: "pointer", fontSize: 14, fontWeight: 700, fontFamily: "inherit" }}>+ เพิ่มรายการ</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────
 // APP SHELL
 // ────────────────────────────────────────────────────────
 const NAV = [
@@ -1342,6 +1727,7 @@ const NAV = [
   { id: "stock", icon: "📦", label: "สต็อก" },
   { id: "report", icon: "📈", label: "รายงาน" },
   { id: "cashbook", icon: "💰", label: "รายรับ-รายจ่าย" },
+  { id: "purchase", icon: "🛒", label: "ใบสั่งวัตถุดิบ" },
   { id: "staff", icon: "👥", label: "พนักงาน" },
   { id: "sop", icon: "📋", label: "SOP งานประจำวัน" },
 ];
@@ -1358,6 +1744,7 @@ export default function App() {
     { id: 2, type: "expense", cat: "วัตถุดิบ", desc: "ซื้อเมล็ดกาแฟ", amount: 80000, time: new Date(Date.now() - 5400000) },
     { id: 3, type: "expense", cat: "ค่าแรง", desc: "ค่าจ้างพนักงานรายวัน", amount: 50000, time: new Date(Date.now() - 3600000) },
   ]);
+  const [purchaseOrders, setPurchaseOrders] = useState([]);
   const [posTableId, setPosTableId] = useState(null);
 
   const goToPOS = useCallback((tableId) => { setPosTableId(tableId); setPage("pos"); }, []);
@@ -1399,6 +1786,7 @@ export default function App() {
           {page === "stock" && <StockPage stocks={stocks} setStocks={setStocks} />}
           {page === "report" && <Report orders={orders} tables={tables} />}
           {page === "cashbook" && <CashBook cashbook={cashbook} setCashbook={setCashbook} orders={orders} />}
+          {page === "purchase" && <PurchasePage stocks={stocks} setStocks={setStocks} purchaseOrders={purchaseOrders} setPurchaseOrders={setPurchaseOrders} />}
           {page === "staff" && <Staff staffs={staffs} setStaffs={setStaffs} />}
           {page === "sop" && <SOPPage />}
         </div>
