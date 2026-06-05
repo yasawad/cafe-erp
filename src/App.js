@@ -1283,18 +1283,31 @@ function Report({ orders, tables }) {
 }
 
 function Staff({ staffs, setStaffs }) {
+  const EMPTY_FORM = { name: "", role: "บาริสต้า", start: "08:00", end: "17:00" };
   const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({ name: "", role: "บาริสต้า", start: "08:00", end: "17:00" });
+  const [editId, setEditId] = useState(null); // null = เพิ่มใหม่, number = แก้ไข
+  const [form, setForm] = useState(EMPTY_FORM);
+
+  const openAdd = () => { setEditId(null); setForm(EMPTY_FORM); setShowModal(true); };
+  const openEdit = (s) => { setEditId(s.id); setForm({ name: s.name, role: s.role, start: s.start, end: s.end }); setShowModal(true); };
+
   const save = () => {
     if (!form.name) return;
-    setStaffs((p) => [...p, { id: Date.now(), ...form, status: "กำลังทำงาน" }]);
-    setShowModal(false); setForm({ name: "", role: "บาริสต้า", start: "08:00", end: "17:00" });
+    if (editId) {
+      setStaffs((p) => p.map((s) => s.id === editId ? { ...s, ...form } : s));
+    } else {
+      setStaffs((p) => [...p, { id: Date.now(), ...form, status: "กำลังทำงาน" }]);
+    }
+    setShowModal(false);
+    setForm(EMPTY_FORM);
+    setEditId(null);
   };
+
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14 }}>
         <span style={{ fontSize: 12, color: "#6B7280" }}>พนักงานทั้งหมด {staffs.length} คน</span>
-        <Btn variant="primary" size="sm" onClick={() => setShowModal(true)}>+ เพิ่มพนักงาน</Btn>
+        <Btn variant="primary" size="sm" onClick={openAdd}>+ เพิ่มพนักงาน</Btn>
       </div>
       <div style={{ background: "#fff", border: "1px solid #E5E7EB", borderRadius: 16, padding: "4px 16px" }}>
         {staffs.map((s, i) => {
@@ -1311,13 +1324,14 @@ function Staff({ staffs, setStaffs }) {
               <div style={{ textAlign: "center" }}><div style={{ fontSize: 11, color: "#9CA3AF" }}>ชั่วโมง/วัน</div><div style={{ fontSize: 13, fontWeight: 600 }}>{hrs} ชม.</div></div>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <Badge type="green">{s.status}</Badge>
-                <Btn size="sm" variant="danger" onClick={() => setStaffs((p) => p.filter((x) => x.id !== s.id))}>🗑</Btn>
+                <Btn size="sm" onClick={() => openEdit(s)}>✏️ แก้ไข</Btn>
+                <Btn size="sm" variant="danger" onClick={() => { if (window.confirm(`ลบ ${s.name} ออกจากระบบ?`)) setStaffs((p) => p.filter((x) => x.id !== s.id)); }}>🗑</Btn>
               </div>
             </div>
           );
         })}
       </div>
-      <Modal open={showModal} onClose={() => setShowModal(false)} title="เพิ่มพนักงาน"
+      <Modal open={showModal} onClose={() => setShowModal(false)} title={editId ? "แก้ไขข้อมูลพนักงาน" : "เพิ่มพนักงาน"}
         footer={[<Btn key="c" onClick={() => setShowModal(false)}>ยกเลิก</Btn>, <Btn key="s" variant="primary" onClick={save}>บันทึก</Btn>]}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
           <div><label style={{ fontSize: 12, color: "#6B7280", display: "block", marginBottom: 4 }}>ชื่อ-นามสกุล</label><Input value={form.name} onChange={(v) => setForm({ ...form, name: v })} placeholder="สมชาย ดีใจ" /></div>
