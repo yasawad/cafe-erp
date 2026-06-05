@@ -1927,18 +1927,44 @@ const NAV = [
 ];
 
 export default function App() {
+  // ── localStorage helpers ──────────────────────────────────────────────────
+  function loadLS(key, fallback, reviver) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return fallback;
+      return JSON.parse(raw, reviver);
+    } catch { return fallback; }
+  }
+  function useLS(key, initial, reviver) {
+    const [val, setVal] = useState(() => loadLS(key, initial, reviver));
+    const setAndSave = useCallback((updater) => {
+      setVal((prev) => {
+        const next = typeof updater === "function" ? updater(prev) : updater;
+        try { localStorage.setItem(key, JSON.stringify(next)); } catch {}
+        return next;
+      });
+    }, [key]);
+    return [val, setAndSave];
+  }
+  // date reviver for JSON.parse
+  const dateReviver = (k, v) => {
+    if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}T/.test(v)) return new Date(v);
+    return v;
+  };
+  // ─────────────────────────────────────────────────────────────────────────
+
   const [page, setPage] = useState("dashboard");
-  const [menus, setMenus] = useState(INITIAL_MENUS);
-  const [tables, setTables] = useState(INITIAL_TABLES);
-  const [stocks, setStocks] = useState(INITIAL_STOCKS);
-  const [staffs, setStaffs] = useState(INITIAL_STAFF);
-  const [orders, setOrders] = useState(SEED_ORDERS);
-  const [cashbook, setCashbook] = useState([
+  const [menus,  setMenus]  = useLS("erp_menus",  INITIAL_MENUS);
+  const [tables, setTables] = useLS("erp_tables", INITIAL_TABLES);
+  const [stocks, setStocks] = useLS("erp_stocks", INITIAL_STOCKS);
+  const [staffs, setStaffs] = useLS("erp_staffs", INITIAL_STAFF);
+  const [orders, setOrders] = useLS("erp_orders", SEED_ORDERS, dateReviver);
+  const [cashbook, setCashbook] = useLS("erp_cashbook", [
     { id: 1, type: "income", cat: "ขายกาแฟ", desc: "ยอดขายเปิดร้านเช้า", amount: 150000, time: new Date(Date.now() - 7200000) },
     { id: 2, type: "expense", cat: "วัตถุดิบ", desc: "ซื้อเมล็ดกาแฟ", amount: 80000, time: new Date(Date.now() - 5400000) },
     { id: 3, type: "expense", cat: "ค่าแรง", desc: "ค่าจ้างพนักงานรายวัน", amount: 50000, time: new Date(Date.now() - 3600000) },
-  ]);
-  const [purchaseOrders, setPurchaseOrders] = useState([]);
+  ], dateReviver);
+  const [purchaseOrders, setPurchaseOrders] = useLS("erp_purchase_orders", [], dateReviver);
   const [posTableId, setPosTableId] = useState(null);
 
   const goToPOS = useCallback((tableId) => { setPosTableId(tableId); setPage("pos"); }, []);
