@@ -602,6 +602,96 @@ function Tables({ tables, setTables, onGoToPOS }) {
   );
 }
 
+// ── Star mPOP Bluetooth helpers ──────────────────────────────────────────────
+const MPOP_SERVICE = "00001101-0000-1000-8000-00805f9b34fb";
+const MPOP_CHAR_TX = "00002af1-0000-1000-8000-00805f9b34fb";
+const ESC = 0x1b, GS = 0x1d;
+const mkCmd = (...b) => new Uint8Array(b);
+const PRINTER_INIT     = mkCmd(ESC, 0x40);
+const PRINTER_CUT      = mkCmd(GS, 0x56, 0x42, 0x40);
+const ALIGN_CENTER     = mkCmd(ESC, 0x61, 0x01);
+const ALIGN_LEFT       = mkCmd(ESC, 0x61, 0x00);
+const BOLD_ON          = mkCmd(ESC, 0x45, 0x01);
+const BOLD_OFF         = mkCmd(ESC, 0x45, 0x00);
+const DOUBLE_SIZE      = mkCmd(GS,  0x21, 0x10);
+const NORMAL_SIZE      = mkCmd(GS,  0x21, 0x00);
+const LF               = mkCmd(0x0a);
+const DASHES           = "--------------------------------\n";
+
+function encodeForPrinter(text) {
+  const buf = [];
+  for (const ch of text) {
+    const code = ch.charCodeAt(0);
+    if (code < 128) { buf.push(code); }
+    else {
+      const tis = code - 0x0E00 + 0xA0;
+      buf.push(tis >= 0xA0 && tis <= 0xFF ? tis : 0x3F);
+    }
+  }
+  return new Uint8Array(buf);
+}
+
+function padRow(left, right, width = 32) {
+  const sp = width - left.length - right.length;
+  return left + " ".repeat(Math.max(1, sp)) + right + "\n";
+}
+
+function buildReceiptBytes(ord, tables) {
+  const t = tables.find((x) => x.id === ord.tableId);
+  const sub = ord.items.reduce((s, i) => s + i.price * i.qty, 0);
+  const vat = ord.total - sub;
+  const now = ord.time;
+  const dateStr = now.toLocaleDateString("th-TH");
+  const timeStr = now.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
+
+  const parts = [
+    PRINTER_INIT,
+    ALIGN_CENTER, BOLD_ON, DOUBLE_SIZE,
+    encodeForPrinter("CafeERP\n"),
+    NORMAL_SIZE, BOLD_OFF,
+    encodeForPrinter("ใบเสร็จรับเงิน\n"),
+    LF,
+    ALIGN_LEFT,
+    encodeForPrinter(DASHES),
+    encodeForPrinter(padRow("ออเดอร์:", "#" + ord.id)),
+    encodeForPrinter(padRow("โต๊ะ:", t ? "โต๊ะ " + t.num : "ไม่ระบุ")),
+    encodeForPrinter(padRow("วันที่:", dateStr)),
+    encodeForPrinter(padRow("เวลา:", timeStr)),
+    encodeForPrinter(DASHES),
+    ...ord.items.map((i) => encodeForPrinter(padRow(i.name + " x" + i.qty, "K" + (i.price * i.qty).toLocaleString()))),
+    encodeForPrinter(DASHES),
+    encodeForPrinter(padRow("ยอดรวม", "K" + sub.toLocaleString())),
+    encodeForPrinter(padRow("VAT 7%", "K" + vat.toLocaleString())),
+    BOLD_ON,
+    encodeForPrinter(padRow("ยอดสุทธิ", "K" + ord.total.toLocaleString())),
+    BOLD_OFF,
+    encodeForPrinter(DASHES),
+    encodeForPrinter(padRow("รับเงินสด", "K" + (ord.cashReceived || ord.total).toLocaleString())),
+    encodeForPrinter(padRow("ทอนเงิน", "K" + (ord.change || 0).toLocaleString())),
+    LF,
+    ALIGN_CENTER,
+    encodeForPrinter("ขอบคุณที่ใช้บริการ\n"),
+    LF, LF, LF,
+    PRINTER_CUT,
+  ];
+
+  let len = 0;
+  for (const p of parts) len += p.length;
+  const out = new Uint8Array(len);
+  let off = 0;
+  for (const p of parts) { out.set(p, off); off += p.length; }
+  return out;
+}
+
+async function sendToPrinter(char, data) {
+  const CHUNK = 200;
+  for (let i = 0; i < data.length; i += CHUNK) {
+    await char.writeValue(data.slice(i, i + CHUNK));
+    await new Promise((r) => setTimeout(r, 30));
+  }
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 function POS({ menus, tables, orders, setOrders, initialTableId, setInitialTableId }) {
   const [currentOrder, setCurrentOrder] = useState([]);
   const [selectedTableId, setSelectedTableId] = useState(initialTableId || null);
@@ -610,6 +700,71 @@ function POS({ menus, tables, orders, setOrders, initialTableId, setInitialTable
   const [cashOpen, setCashOpen] = useState(false);
   const [cashReceived, setCashReceived] = useState("");
   const [lastOrder, setLastOrder] = useState(null);
+
+  // mPOP Bluetooth state
+  const [printerStatus, setPrinterStatus] = useState("idle"); // idle | connecting | connected | printing | error
+  const [printerMsg, setPrinterMsg] = useState("");
+  const printerChar = useCallback(() => null, []);
+  const printerCharRef = { current: null };
+  const printerDevRef  = { current: null };
+
+  const connectPrinter = async () => {
+    if (!navigator.bluetooth) {
+      setPrinterStatus("error");
+      setPrinterMsg("ไม่รองรับ Web Bluetooth (ใช้ Chrome)");
+      return;
+    }
+    try {
+      setPrinterStatus("connecting");
+      setPrinterMsg("กำลังค้นหา mPOP...");
+      const device = await navigator.bluetooth.requestDevice({
+        filters: [{ namePrefix: "mPOP" }],
+        optionalServices: [MPOP_SERVICE],
+      });
+      printerDevRef.current = device;
+      device.addEventListener("gattserverdisconnected", () => {
+        setPrinterStatus("idle");
+        setPrinterMsg("หลุดการเชื่อมต่อ");
+        printerCharRef.current = null;
+      });
+      const server  = await device.gatt.connect();
+      const service = await server.getPrimaryService(MPOP_SERVICE);
+      const char    = await service.getCharacteristic(MPOP_CHAR_TX);
+      printerCharRef.current = char;
+      setPrinterStatus("connected");
+      setPrinterMsg("เชื่อมต่อ " + device.name + " สำเร็จ ✓");
+    } catch (e) {
+      setPrinterStatus("error");
+      setPrinterMsg(e.message || "เชื่อมต่อไม่สำเร็จ");
+    }
+  };
+
+  const disconnectPrinter = () => {
+    if (printerDevRef.current?.gatt?.connected) printerDevRef.current.gatt.disconnect();
+    printerCharRef.current = null;
+    setPrinterStatus("idle");
+    setPrinterMsg("");
+  };
+
+  const printViaBluetooth = async (ord) => {
+    if (!printerCharRef.current) {
+      setPrinterMsg("กรุณาเชื่อมต่อเครื่องพิมพ์ก่อน");
+      return false;
+    }
+    try {
+      setPrinterStatus("printing");
+      setPrinterMsg("กำลังพิมพ์...");
+      const data = buildReceiptBytes(ord, tables);
+      await sendToPrinter(printerCharRef.current, data);
+      setPrinterStatus("connected");
+      setPrinterMsg("พิมพ์สำเร็จ ✓");
+      return true;
+    } catch (e) {
+      setPrinterStatus("error");
+      setPrinterMsg("พิมพ์ไม่สำเร็จ: " + e.message);
+      return false;
+    }
+  };
 
   const cats = ["ทั้งหมด", ...new Set(menus.map((m) => m.cat))];
   const filtered = activeCat === "ทั้งหมด" ? menus.filter((m) => m.status === "พร้อมขาย") : menus.filter((m) => m.cat === activeCat && m.status === "พร้อมขาย");
@@ -810,7 +965,32 @@ hr{border:none;border-top:1px dashed #ccc;margin:10px 0}
 
       {/* Receipt Preview Modal */}
       <Modal open={receiptOpen} onClose={() => setReceiptOpen(false)} title="ใบเสร็จรับเงิน"
-        footer={[<Btn key="c" onClick={() => setReceiptOpen(false)}>ปิด</Btn>, lastOrder && <Btn key="p" variant="primary" onClick={() => printReceipt(lastOrder)}>🖨 พิมพ์</Btn>]}>
+        footer={[
+          <Btn key="c" onClick={() => setReceiptOpen(false)}>ปิด</Btn>,
+          lastOrder && <Btn key="p" onClick={() => printReceipt(lastOrder)}>🖨 พิมพ์ (เบราว์เซอร์)</Btn>,
+          lastOrder && (
+            printerStatus === "connected" || printerStatus === "printing"
+              ? <Btn key="bt" variant="primary" onClick={() => printViaBluetooth(lastOrder)}
+                  style={{ background: printerStatus === "printing" ? "#9CA3AF" : "#2563EB", border: "none" }}
+                  disabled={printerStatus === "printing"}>
+                  {printerStatus === "printing" ? "⏳ กำลังพิมพ์..." : "🔵 พิมพ์ mPOP"}
+                </Btn>
+              : <Btn key="bt" variant="primary" onClick={connectPrinter}
+                  style={{ background: printerStatus === "connecting" ? "#9CA3AF" : "#2563EB", border: "none" }}
+                  disabled={printerStatus === "connecting"}>
+                  {printerStatus === "connecting" ? "⏳ กำลังเชื่อมต่อ..." : "🔵 เชื่อมต่อ mPOP"}
+                </Btn>
+          ),
+        ]}>
+        {printerMsg && (
+          <div style={{ marginBottom: 10, fontSize: 12, padding: "6px 12px", borderRadius: 8,
+            background: printerStatus === "error" ? "#FEE2E2" : printerStatus === "connected" || printerStatus === "printing" ? "#D1FAE5" : "#FEF9C3",
+            color: printerStatus === "error" ? "#991B1B" : printerStatus === "connected" || printerStatus === "printing" ? "#065F46" : "#78350F",
+            display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span>🖨 {printerMsg}</span>
+            {(printerStatus === "connected") && <button onClick={disconnectPrinter} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: "#6B7280" }}>ตัดการเชื่อมต่อ</button>}
+          </div>
+        )}
         {lastOrder && (() => {
           const t = tables.find((x) => x.id === lastOrder.tableId);
           const s = lastOrder.items.reduce((x, i) => x + i.price * i.qty, 0);
