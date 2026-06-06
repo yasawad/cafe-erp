@@ -184,12 +184,12 @@ ${catTasks.map((t, i) => `
   return (
     <div>
       {/* Header summary */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <div style={{ background: "#F9FAFB", borderRadius: 12, padding: "10px 16px", border: "1px solid #E5E7EB" }}>
             <div style={{ fontSize: 11, color: "#6B7280" }}>ความคืบหน้าวันนี้</div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6 }}>
-              <div style={{ width: 120, height: 8, background: "#E5E7EB", borderRadius: 20, overflow: "hidden" }}>
+              <div style={{ width: 100, height: 8, background: "#E5E7EB", borderRadius: 20, overflow: "hidden" }}>
                 <div style={{ width: `${pct}%`, height: "100%", background: pct === 100 ? "#16A34A" : BRAND, borderRadius: 20, transition: "width .4s" }} />
               </div>
               <span style={{ fontSize: 13, fontWeight: 700, color: pct === 100 ? "#16A34A" : "#111827" }}>{totalDone}/{totalAll} ({pct}%)</span>
@@ -197,10 +197,10 @@ ${catTasks.map((t, i) => `
             </div>
           </div>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={resetDay} style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid #E5E7EB", background: "#F9FAFB", color: "#6B7280", cursor: "pointer", fontSize: 12, fontFamily: "inherit" }}>🔄 รีเซ็ตวัน</button>
-          <button onClick={printSOP} style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid #E5E7EB", background: "#F9FAFB", color: "#374151", cursor: "pointer", fontSize: 12, fontFamily: "inherit" }}>🖨 พิมพ์ checklist</button>
-          <button onClick={() => setShowAddModal(true)} style={{ padding: "7px 14px", borderRadius: 8, border: "none", background: BRAND, color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "inherit" }}>+ เพิ่มงาน SOP</button>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          <button onClick={resetDay} style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid #E5E7EB", background: "#F9FAFB", color: "#6B7280", cursor: "pointer", fontSize: 12, fontFamily: "inherit" }}>🔄 รีเซ็ต</button>
+          <button onClick={printSOP} style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid #E5E7EB", background: "#F9FAFB", color: "#374151", cursor: "pointer", fontSize: 12, fontFamily: "inherit" }}>🖨 พิมพ์</button>
+          <button onClick={() => setShowAddModal(true)} style={{ padding: "7px 12px", borderRadius: 8, border: "none", background: BRAND, color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "inherit" }}>+ เพิ่มงาน</button>
         </div>
       </div>
 
@@ -495,7 +495,7 @@ function Dashboard({ orders, tables, stocks }) {
 
   return (
     <div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 12, marginBottom: 20 }}>
+      <div className="metric-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 12, marginBottom: 20 }}>
         <MetricCard label="ยอดขายวันนี้" value={`₭${rev.toLocaleString()}`} sub={`${todayOrders.length} ออเดอร์`} />
         <MetricCard label="โต๊ะที่ใช้งาน" value={occupied} sub={`จาก ${tables.length} โต๊ะ`} />
         <MetricCard label="เมนูยอดนิยม" value={top ? top[0] : "-"} sub={`${top ? top[1] : 0} แก้ว`} />
@@ -504,8 +504,8 @@ function Dashboard({ orders, tables, stocks }) {
       <div style={{ background: "#fff", border: "1px solid #E5E7EB", borderRadius: 16, padding: 16 }}>
         <div style={{ fontSize: 12, fontWeight: 600, color: "#6B7280", marginBottom: 12 }}>ออเดอร์ล่าสุด</div>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-          <thead><tr>{["ออเดอร์","โต๊ะ","รายการ","ราคา","สถานะ"].map((h) => (
-            <th key={h} style={{ textAlign: "left", padding: "7px 8px", fontSize: 11, fontWeight: 600, color: "#9CA3AF", borderBottom: "1px solid #F3F4F6" }}>{h}</th>
+          <thead><tr>{["ออเดอร์","โต๊ะ","รายการ","ราคา","สถานะ"].map((h, i) => (
+            <th key={h} className={i === 2 ? "hide-mobile" : ""} style={{ textAlign: "left", padding: "7px 8px", fontSize: 11, fontWeight: 600, color: "#9CA3AF", borderBottom: "1px solid #F3F4F6" }}>{h}</th>
           ))}</tr></thead>
           <tbody>
             {orders.length === 0 ? (
@@ -517,7 +517,7 @@ function Dashboard({ orders, tables, stocks }) {
                 <tr key={o.id}>
                   <td style={{ padding: "9px 8px", borderBottom: "1px solid #F9FAFB", fontWeight: 600 }}>#{o.id}</td>
                   <td style={{ padding: "9px 8px", borderBottom: "1px solid #F9FAFB" }}>{tbl ? `โต๊ะ ${tbl.num}` : "-"}</td>
-                  <td style={{ padding: "9px 8px", borderBottom: "1px solid #F9FAFB", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{names}</td>
+                  <td className="hide-mobile" style={{ padding: "9px 8px", borderBottom: "1px solid #F9FAFB", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{names}</td>
                   <td style={{ padding: "9px 8px", borderBottom: "1px solid #F9FAFB" }}>₭{o.total}</td>
                   <td style={{ padding: "9px 8px", borderBottom: "1px solid #F9FAFB" }}><Badge type="green">สำเร็จ</Badge></td>
                 </tr>
@@ -559,8 +559,8 @@ function Tables({ tables, setTables, onGoToPOS }) {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <div style={{ display: "flex", gap: 10 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {Object.entries(statusConfig).map(([k, v]) => (
             <span key={k} style={{ fontSize: 12, padding: "3px 10px", borderRadius: 20, background: v.bg, color: v.text, border: `1px solid ${v.border}` }}>● {v.label}</span>
           ))}
@@ -840,7 +840,7 @@ hr{border:none;border-top:1px dashed #ccc;margin:10px 0}
   const quickCash = [20000, 50000, 100000, 200000, 500000];
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 16 }}>
+    <div className="pos-layout" style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 16 }}>
       <div>
         <div style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 10 }}>
           <span style={{ fontSize: 12, color: "#6B7280" }}>โต๊ะ:</span>
@@ -873,7 +873,7 @@ hr{border:none;border-top:1px dashed #ccc;margin:10px 0}
         </div>
       </div>
 
-      <div style={{ background: "#F9FAFB", borderRadius: 16, padding: 16, display: "flex", flexDirection: "column", maxHeight: "calc(100vh - 110px)", position: "sticky", top: 0 }}>
+      <div className="pos-cart-panel" style={{ background: "#F9FAFB", borderRadius: 16, padding: 16, display: "flex", flexDirection: "column", maxHeight: "calc(100vh - 110px)", position: "sticky", top: 0 }}>
         <div style={{ fontWeight: 600, fontSize: 14 }}>ออเดอร์ {tbl ? <span style={{ fontWeight: 400, fontSize: 12, color: "#6B7280" }}>— โต๊ะ {tbl.num}</span> : <span style={{ fontWeight: 400, fontSize: 12, color: "#9CA3AF" }}>— ไม่ระบุโต๊ะ</span>}</div>
         <div style={{ flex: 1, overflowY: "auto", margin: "12px 0", minHeight: 60 }}>
           {currentOrder.length === 0 ? <div style={{ color: "#9CA3AF", fontSize: 12, textAlign: "center", padding: 20 }}>เพิ่มเมนูจากซ้าย</div>
@@ -1209,7 +1209,7 @@ function Report({ orders, tables }) {
         <Btn onClick={exportCSV}>📊 ส่งออก CSV / Excel</Btn>
         <Btn onClick={printReport}>🖨 พิมพ์รายงาน</Btn>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))", gap: 12, marginBottom: 16 }}>
+      <div className="metric-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))", gap: 12, marginBottom: 16 }}>
         <MetricCard label="รายได้สัปดาห์นี้" value={`₭${wRev.toLocaleString()}`} />
         <MetricCard label="รายได้ทั้งหมด" value={`₭${total.toLocaleString()}`} />
         <MetricCard label="ออเดอร์ทั้งหมด" value={orders.length} />
@@ -1283,31 +1283,18 @@ function Report({ orders, tables }) {
 }
 
 function Staff({ staffs, setStaffs }) {
-  const EMPTY_FORM = { name: "", role: "บาริสต้า", start: "08:00", end: "17:00" };
   const [showModal, setShowModal] = useState(false);
-  const [editId, setEditId] = useState(null); // null = เพิ่มใหม่, number = แก้ไข
-  const [form, setForm] = useState(EMPTY_FORM);
-
-  const openAdd = () => { setEditId(null); setForm(EMPTY_FORM); setShowModal(true); };
-  const openEdit = (s) => { setEditId(s.id); setForm({ name: s.name, role: s.role, start: s.start, end: s.end }); setShowModal(true); };
-
+  const [form, setForm] = useState({ name: "", role: "บาริสต้า", start: "08:00", end: "17:00" });
   const save = () => {
     if (!form.name) return;
-    if (editId) {
-      setStaffs((p) => p.map((s) => s.id === editId ? { ...s, ...form } : s));
-    } else {
-      setStaffs((p) => [...p, { id: Date.now(), ...form, status: "กำลังทำงาน" }]);
-    }
-    setShowModal(false);
-    setForm(EMPTY_FORM);
-    setEditId(null);
+    setStaffs((p) => [...p, { id: Date.now(), ...form, status: "กำลังทำงาน" }]);
+    setShowModal(false); setForm({ name: "", role: "บาริสต้า", start: "08:00", end: "17:00" });
   };
-
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14 }}>
         <span style={{ fontSize: 12, color: "#6B7280" }}>พนักงานทั้งหมด {staffs.length} คน</span>
-        <Btn variant="primary" size="sm" onClick={openAdd}>+ เพิ่มพนักงาน</Btn>
+        <Btn variant="primary" size="sm" onClick={() => setShowModal(true)}>+ เพิ่มพนักงาน</Btn>
       </div>
       <div style={{ background: "#fff", border: "1px solid #E5E7EB", borderRadius: 16, padding: "4px 16px" }}>
         {staffs.map((s, i) => {
@@ -1315,23 +1302,22 @@ function Staff({ staffs, setStaffs }) {
           const init = s.name.split(" ").map((w) => w[0]).join("").slice(0, 2);
           const hrs = parseInt(s.end) - parseInt(s.start);
           return (
-            <div key={s.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", borderBottom: i < staffs.length - 1 ? "1px solid #F9FAFB" : "none" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <div style={{ width: 36, height: 36, borderRadius: "50%", background: av.bg, color: av.fg, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 12 }}>{init}</div>
+            <div key={s.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", borderBottom: i < staffs.length - 1 ? "1px solid #F9FAFB" : "none", flexWrap: "wrap", gap: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, flex: "1 1 160px" }}>
+                <div style={{ width: 36, height: 36, borderRadius: "50%", background: av.bg, color: av.fg, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 12, flexShrink: 0 }}>{init}</div>
                 <div><div style={{ fontWeight: 600, fontSize: 13 }}>{s.name}</div><div style={{ fontSize: 11, color: "#9CA3AF" }}>{s.role}</div></div>
               </div>
               <div style={{ textAlign: "center" }}><div style={{ fontSize: 11, color: "#9CA3AF" }}>เวลางาน</div><div style={{ fontSize: 13 }}>{s.start}–{s.end}</div></div>
-              <div style={{ textAlign: "center" }}><div style={{ fontSize: 11, color: "#9CA3AF" }}>ชั่วโมง/วัน</div><div style={{ fontSize: 13, fontWeight: 600 }}>{hrs} ชม.</div></div>
+              <div className="hide-mobile" style={{ textAlign: "center" }}><div style={{ fontSize: 11, color: "#9CA3AF" }}>ชั่วโมง/วัน</div><div style={{ fontSize: 13, fontWeight: 600 }}>{hrs} ชม.</div></div>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <Badge type="green">{s.status}</Badge>
-                <Btn size="sm" onClick={() => openEdit(s)}>✏️ แก้ไข</Btn>
-                <Btn size="sm" variant="danger" onClick={() => { if (window.confirm(`ลบ ${s.name} ออกจากระบบ?`)) setStaffs((p) => p.filter((x) => x.id !== s.id)); }}>🗑</Btn>
+                <Btn size="sm" variant="danger" onClick={() => setStaffs((p) => p.filter((x) => x.id !== s.id))}>🗑</Btn>
               </div>
             </div>
           );
         })}
       </div>
-      <Modal open={showModal} onClose={() => setShowModal(false)} title={editId ? "แก้ไขข้อมูลพนักงาน" : "เพิ่มพนักงาน"}
+      <Modal open={showModal} onClose={() => setShowModal(false)} title="เพิ่มพนักงาน"
         footer={[<Btn key="c" onClick={() => setShowModal(false)}>ยกเลิก</Btn>, <Btn key="s" variant="primary" onClick={save}>บันทึก</Btn>]}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
           <div><label style={{ fontSize: 12, color: "#6B7280", display: "block", marginBottom: 4 }}>ชื่อ-นามสกุล</label><Input value={form.name} onChange={(v) => setForm({ ...form, name: v })} placeholder="สมชาย ดีใจ" /></div>
@@ -1911,76 +1897,156 @@ ${po.totalCost > 0 ? `<div class="total">ยอดรวมทั้งสิ้
 }
 
 // ────────────────────────────────────────────────────────
-// APP SHELL
+// APP SHELL  (mobile-first, responsive)
 // ────────────────────────────────────────────────────────
+
+// Bottom-nav items (primary 5 shown on mobile bar)
 const NAV = [
   { id: "dashboard", icon: "📊", label: "ภาพรวม" },
-  { id: "tables", icon: "🪑", label: "ระบบโต๊ะ" },
-  { id: "pos", icon: "🧾", label: "POS / ออเดอร์" },
-  { id: "menu", icon: "☕", label: "เมนู & ราคา" },
-  { id: "stock", icon: "📦", label: "สต็อก" },
-  { id: "report", icon: "📈", label: "รายงาน" },
-  { id: "cashbook", icon: "💰", label: "รายรับ-รายจ่าย" },
-  { id: "purchase", icon: "🛒", label: "ใบสั่งวัตถุดิบ" },
-  { id: "staff", icon: "👥", label: "พนักงาน" },
-  { id: "sop", icon: "📋", label: "SOP งานประจำวัน" },
+  { id: "tables",    icon: "🪑", label: "ระบบโต๊ะ" },
+  { id: "pos",       icon: "🧾", label: "POS" },
+  { id: "menu",      icon: "☕", label: "เมนู" },
+  { id: "stock",     icon: "📦", label: "สต็อก" },
+  { id: "report",    icon: "📈", label: "รายงาน" },
+  { id: "cashbook",  icon: "💰", label: "รายรับ-จ่าย" },
+  { id: "purchase",  icon: "🛒", label: "สั่งซื้อ" },
+  { id: "staff",     icon: "👥", label: "พนักงาน" },
+  { id: "sop",       icon: "📋", label: "SOP" },
 ];
 
-export default function App() {
-  // ── localStorage helpers ──────────────────────────────────────────────────
-  function loadLS(key, fallback, reviver) {
-    try {
-      const raw = localStorage.getItem(key);
-      if (!raw) return fallback;
-      return JSON.parse(raw, reviver);
-    } catch { return fallback; }
-  }
-  function useLS(key, initial, reviver) {
-    const [val, setVal] = useState(() => loadLS(key, initial, reviver));
-    const setAndSave = useCallback((updater) => {
-      setVal((prev) => {
-        const next = typeof updater === "function" ? updater(prev) : updater;
-        try { localStorage.setItem(key, JSON.stringify(next)); } catch {}
-        return next;
-      });
-    }, [key]);
-    return [val, setAndSave];
-  }
-  // date reviver for JSON.parse
-  const dateReviver = (k, v) => {
-    if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}T/.test(v)) return new Date(v);
-    return v;
-  };
-  // ─────────────────────────────────────────────────────────────────────────
+// First 4 + a "more" drawer for the rest
+const BOTTOM_PRIMARY = NAV.slice(0, 4);
 
+// Inline responsive CSS injected once
+const GLOBAL_CSS = `
+  :root { --brand: #2D6A4F; --brand-light: #52B788; }
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+
+  /* Sidebar visible on desktop, hidden on mobile */
+  .erp-sidebar {
+    width: 176px;
+    background: #F9FAFB;
+    border-right: 1px solid #E5E7EB;
+    display: flex;
+    flex-direction: column;
+    padding: 16px 0;
+    flex-shrink: 0;
+    overflow-y: auto;
+  }
+  /* Bottom nav visible on mobile, hidden on desktop */
+  .erp-bottomnav {
+    display: none;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: #fff;
+    border-top: 1px solid #E5E7EB;
+    z-index: 100;
+    padding: 6px 0 env(safe-area-inset-bottom, 6px);
+  }
+  /* More drawer */
+  .erp-moredrawer {
+    display: none;
+    position: fixed;
+    bottom: 64px; left: 0; right: 0;
+    background: #fff;
+    border-top: 1px solid #E5E7EB;
+    border-radius: 18px 18px 0 0;
+    z-index: 99;
+    padding: 16px;
+    box-shadow: 0 -8px 32px rgba(0,0,0,0.12);
+  }
+  .erp-moredrawer.open { display: block; }
+  .erp-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.3);
+    z-index: 98;
+  }
+  .erp-overlay.open { display: block; }
+
+  /* Main content bottom padding on mobile to clear bottom nav */
+  .erp-main-content { padding-bottom: 20px; }
+
+  @media (max-width: 700px) {
+    .erp-sidebar { display: none !important; }
+    .erp-bottomnav { display: flex !important; }
+    .erp-main-content { padding-bottom: 80px !important; }
+    /* POS stacks vertically on mobile */
+    .pos-layout { grid-template-columns: 1fr !important; }
+    .pos-cart-panel {
+      position: fixed !important;
+      bottom: 64px; left: 0; right: 0;
+      max-height: 50vh !important;
+      border-radius: 18px 18px 0 0 !important;
+      border: none !important;
+      border-top: 1px solid #E5E7EB !important;
+      z-index: 50;
+      box-shadow: 0 -8px 32px rgba(0,0,0,0.12);
+    }
+    .pos-cart-collapsed { display: none; }
+    /* Hide wide table cols on mobile */
+    .hide-mobile { display: none !important; }
+    /* Metric cards 2-col on small screens */
+    .metric-grid { grid-template-columns: 1fr 1fr !important; }
+    /* Shrink table fonts */
+    table { font-size: 12px !important; }
+    th, td { padding: 7px 8px !important; }
+  }
+  @media (min-width: 701px) {
+    .erp-bottomnav { display: none !important; }
+    .erp-sidebar { display: flex !important; }
+  }
+`;
+
+function useIsMobile() {
+  const [mobile, setMobile] = useState(window.innerWidth <= 700);
+  useState(() => {
+    const handler = () => setMobile(window.innerWidth <= 700);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  });
+  return mobile;
+}
+
+export default function App() {
   const [page, setPage] = useState("dashboard");
-  const [menus,  setMenus]  = useLS("erp_menus",  INITIAL_MENUS);
-  const [tables, setTables] = useLS("erp_tables", INITIAL_TABLES);
-  const [stocks, setStocks] = useLS("erp_stocks", INITIAL_STOCKS);
-  const [staffs, setStaffs] = useLS("erp_staffs", INITIAL_STAFF);
-  const [orders, setOrders] = useLS("erp_orders", SEED_ORDERS, dateReviver);
-  const [cashbook, setCashbook] = useLS("erp_cashbook", [
+  const [menus, setMenus] = useState(INITIAL_MENUS);
+  const [tables, setTables] = useState(INITIAL_TABLES);
+  const [stocks, setStocks] = useState(INITIAL_STOCKS);
+  const [staffs, setStaffs] = useState(INITIAL_STAFF);
+  const [orders, setOrders] = useState(SEED_ORDERS);
+  const [cashbook, setCashbook] = useState([
     { id: 1, type: "income", cat: "ขายกาแฟ", desc: "ยอดขายเปิดร้านเช้า", amount: 150000, time: new Date(Date.now() - 7200000) },
     { id: 2, type: "expense", cat: "วัตถุดิบ", desc: "ซื้อเมล็ดกาแฟ", amount: 80000, time: new Date(Date.now() - 5400000) },
     { id: 3, type: "expense", cat: "ค่าแรง", desc: "ค่าจ้างพนักงานรายวัน", amount: 50000, time: new Date(Date.now() - 3600000) },
-  ], dateReviver);
-  const [purchaseOrders, setPurchaseOrders] = useLS("erp_purchase_orders", [], dateReviver);
+  ]);
+  const [purchaseOrders, setPurchaseOrders] = useState([]);
   const [posTableId, setPosTableId] = useState(null);
+  const [showMoreDrawer, setShowMoreDrawer] = useState(false);
 
   const goToPOS = useCallback((tableId) => { setPosTableId(tableId); setPage("pos"); }, []);
 
   const today = new Date().toLocaleDateString("th-TH", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 
+  const navigate = (id) => { setPage(id); setShowMoreDrawer(false); };
+
+  // More-drawer pages (all except first 4)
+  const MORE_NAV = NAV.slice(4);
+
   return (
-    <div style={{ display: "flex", height: "100vh", minHeight: 600, border: "1px solid #E5E7EB", borderRadius: 16, overflow: "hidden", fontFamily: "'Sarabun', 'Noto Sans Thai', sans-serif", background: "#fff" }}>
-      {/* Sidebar */}
-      <div style={{ width: 176, background: "#F9FAFB", borderRight: "1px solid #E5E7EB", display: "flex", flexDirection: "column", padding: "16px 0", flexShrink: 0 }}>
+    <div style={{ display: "flex", height: "100vh", minHeight: 0, border: "1px solid #E5E7EB", borderRadius: 16, overflow: "hidden", fontFamily: "'Sarabun', 'Noto Sans Thai', sans-serif", background: "#fff", position: "relative" }}>
+      {/* Inject global CSS once */}
+      <style>{GLOBAL_CSS}</style>
+
+      {/* ── Desktop Sidebar ── */}
+      <div className="erp-sidebar">
         <div style={{ padding: "0 14px 16px", borderBottom: "1px solid #E5E7EB", marginBottom: 8 }}>
           <div style={{ fontWeight: 700, fontSize: 15, color: "#111827" }}>☕ CaféERP</div>
           <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 2 }}>ระบบจัดการร้านกาแฟ</div>
         </div>
         {NAV.map((n) => (
-          <div key={n.id} onClick={() => setPage(n.id)}
+          <div key={n.id} onClick={() => navigate(n.id)}
             style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", cursor: "pointer", fontSize: 13,
               background: page === n.id ? "#fff" : "transparent",
               color: page === n.id ? "#111827" : "#6B7280",
@@ -1992,23 +2058,69 @@ export default function App() {
         ))}
       </div>
 
-      {/* Main */}
+      {/* ── Main Content ── */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
-        <div style={{ padding: "13px 20px", borderBottom: "1px solid #E5E7EB", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#fff", flexShrink: 0 }}>
-          <h2 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>{NAV.find((n) => n.id === page)?.label}</h2>
-          <span style={{ fontSize: 11, color: "#9CA3AF" }}>{today}</span>
+        {/* Top header */}
+        <div style={{ padding: "11px 16px", borderBottom: "1px solid #E5E7EB", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#fff", flexShrink: 0 }}>
+          <h2 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>{NAV.find((n) => n.id === page)?.label ?? page}</h2>
+          <span style={{ fontSize: 11, color: "#9CA3AF", display: "none" }} className="hide-mobile">{today}</span>
+          <span style={{ fontSize: 11, color: "#9CA3AF" }}>
+            {new Date().toLocaleDateString("th-TH", { day: "numeric", month: "short" })}
+          </span>
         </div>
-        <div style={{ flex: 1, overflowY: "auto", padding: 20 }}>
+
+        {/* Page body */}
+        <div className="erp-main-content" style={{ flex: 1, overflowY: "auto", padding: 16 }}>
           {page === "dashboard" && <Dashboard orders={orders} tables={tables} stocks={stocks} />}
-          {page === "tables" && <Tables tables={tables} setTables={setTables} onGoToPOS={goToPOS} />}
-          {page === "pos" && <POS menus={menus} tables={tables} orders={orders} setOrders={setOrders} initialTableId={posTableId} setInitialTableId={setPosTableId} />}
-          {page === "menu" && <MenuPage menus={menus} setMenus={setMenus} />}
-          {page === "stock" && <StockPage stocks={stocks} setStocks={setStocks} />}
-          {page === "report" && <Report orders={orders} tables={tables} />}
-          {page === "cashbook" && <CashBook cashbook={cashbook} setCashbook={setCashbook} orders={orders} />}
-          {page === "purchase" && <PurchasePage stocks={stocks} setStocks={setStocks} purchaseOrders={purchaseOrders} setPurchaseOrders={setPurchaseOrders} />}
-          {page === "staff" && <Staff staffs={staffs} setStaffs={setStaffs} />}
-          {page === "sop" && <SOPPage />}
+          {page === "tables"    && <Tables tables={tables} setTables={setTables} onGoToPOS={goToPOS} />}
+          {page === "pos"       && <POS menus={menus} tables={tables} orders={orders} setOrders={setOrders} initialTableId={posTableId} setInitialTableId={setPosTableId} />}
+          {page === "menu"      && <MenuPage menus={menus} setMenus={setMenus} />}
+          {page === "stock"     && <StockPage stocks={stocks} setStocks={setStocks} />}
+          {page === "report"    && <Report orders={orders} tables={tables} />}
+          {page === "cashbook"  && <CashBook cashbook={cashbook} setCashbook={setCashbook} orders={orders} />}
+          {page === "purchase"  && <PurchasePage stocks={stocks} setStocks={setStocks} purchaseOrders={purchaseOrders} setPurchaseOrders={setPurchaseOrders} />}
+          {page === "staff"     && <Staff staffs={staffs} setStaffs={setStaffs} />}
+          {page === "sop"       && <SOPPage />}
+        </div>
+      </div>
+
+      {/* ── Mobile Bottom Navigation ── */}
+      <nav className="erp-bottomnav">
+        {/* First 4 primary pages */}
+        {BOTTOM_PRIMARY.map((n) => (
+          <button key={n.id} onClick={() => navigate(n.id)}
+            style={{ flex: 1, background: "none", border: "none", cursor: "pointer", padding: "6px 4px 2px",
+              display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
+              color: page === n.id ? BRAND : "#9CA3AF", fontFamily: "inherit" }}>
+            <span style={{ fontSize: 20 }}>{n.icon}</span>
+            <span style={{ fontSize: 10, fontWeight: page === n.id ? 700 : 400, whiteSpace: "nowrap" }}>{n.label}</span>
+            {page === n.id && <span style={{ width: 20, height: 3, borderRadius: 2, background: BRAND, marginTop: 1 }} />}
+          </button>
+        ))}
+        {/* "More" button */}
+        <button onClick={() => setShowMoreDrawer((v) => !v)}
+          style={{ flex: 1, background: "none", border: "none", cursor: "pointer", padding: "6px 4px 2px",
+            display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
+            color: showMoreDrawer ? BRAND : "#9CA3AF", fontFamily: "inherit" }}>
+          <span style={{ fontSize: 20 }}>☰</span>
+          <span style={{ fontSize: 10, fontWeight: showMoreDrawer ? 700 : 400 }}>เพิ่มเติม</span>
+        </button>
+      </nav>
+
+      {/* ── More Drawer (mobile) ── */}
+      <div className={`erp-overlay${showMoreDrawer ? " open" : ""}`} onClick={() => setShowMoreDrawer(false)} />
+      <div className={`erp-moredrawer${showMoreDrawer ? " open" : ""}`}>
+        <div style={{ fontWeight: 700, fontSize: 13, color: "#9CA3AF", marginBottom: 14 }}>เมนูทั้งหมด</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+          {MORE_NAV.map((n) => (
+            <button key={n.id} onClick={() => navigate(n.id)}
+              style={{ background: page === n.id ? "#D8F3DC" : "#F9FAFB", border: `1px solid ${page === n.id ? BRAND : "#E5E7EB"}`,
+                borderRadius: 12, padding: "12px 8px", cursor: "pointer", display: "flex", flexDirection: "column",
+                alignItems: "center", gap: 6, fontFamily: "inherit", color: page === n.id ? BRAND : "#374151" }}>
+              <span style={{ fontSize: 22 }}>{n.icon}</span>
+              <span style={{ fontSize: 11, fontWeight: 600, textAlign: "center", lineHeight: 1.3 }}>{n.label}</span>
+            </button>
+          ))}
         </div>
       </div>
     </div>
