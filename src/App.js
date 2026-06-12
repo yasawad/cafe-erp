@@ -1556,19 +1556,49 @@ const GLOBAL_CSS = `
 `;
 
 // ─── APP ─────────────────────────────────────────────────
+// ─── localStorage helpers ─────────────────────────────────
+function loadLS(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    const parsed = JSON.parse(raw);
+    // restore Date objects for orders and cashbook
+    if (key === "cafe_orders" || key === "cafe_cashbook") {
+      return parsed.map((item) => ({ ...item, time: new Date(item.time) }));
+    }
+    return parsed;
+  } catch { return fallback; }
+}
+
+function saveLS(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+}
+
+function usePersist(key, initial) {
+  const [state, setState] = useState(() => loadLS(key, initial));
+  const setPersist = useCallback((val) => {
+    setState((prev) => {
+      const next = typeof val === "function" ? val(prev) : val;
+      saveLS(key, next);
+      return next;
+    });
+  }, [key]);
+  return [state, setPersist];
+}
+
 export default function App() {
   const [page, setPage] = useState("dashboard");
-  const [menus, setMenus] = useState(INITIAL_MENUS);
-  const [tables, setTables] = useState(INITIAL_TABLES);
-  const [stocks, setStocks] = useState(INITIAL_STOCKS);
-  const [staffs, setStaffs] = useState(INITIAL_STAFF);
-  const [orders, setOrders] = useState(SEED_ORDERS);
-  const [cashbook, setCashbook] = useState([
+  const [menus, setMenus] = usePersist("cafe_menus", INITIAL_MENUS);
+  const [tables, setTables] = usePersist("cafe_tables", INITIAL_TABLES);
+  const [stocks, setStocks] = usePersist("cafe_stocks", INITIAL_STOCKS);
+  const [staffs, setStaffs] = usePersist("cafe_staffs", INITIAL_STAFF);
+  const [orders, setOrders] = usePersist("cafe_orders", SEED_ORDERS);
+  const [cashbook, setCashbook] = usePersist("cafe_cashbook", [
     { id: 1, type: "income", cat: "ขายกาแฟ", desc: "ยอดขายเปิดร้านเช้า", amount: 150000, time: new Date(Date.now() - 7200000) },
     { id: 2, type: "expense", cat: "วัตถุดิบ", desc: "ซื้อเมล็ดกาแฟ", amount: 80000, time: new Date(Date.now() - 5400000) },
     { id: 3, type: "expense", cat: "ค่าแรง", desc: "ค่าจ้างพนักงานรายวัน", amount: 50000, time: new Date(Date.now() - 3600000) },
   ]);
-  const [purchaseOrders, setPurchaseOrders] = useState([]);
+  const [purchaseOrders, setPurchaseOrders] = usePersist("cafe_purchase_orders", []);
   const [posTableId, setPosTableId] = useState(null);
   const [showMoreDrawer, setShowMoreDrawer] = useState(false);
 
